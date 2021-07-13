@@ -97,7 +97,8 @@ class NestOptimizee(Optimizee):
         subdir_path = os.path.join(self.dir_path, model_name)
         # nest network model needs to be copied too
         nest_model_path = os.path.join(model_path, 'nest_network.py')
-        shutil.copyfile(nest_model_path, 'nest_network.py')
+        shutil.copyfile(nest_model_path,
+                        os.path.join(self.dir_path, 'nest_network'))
         try:
             # call netlogo
             subprocess.run(['bash', '{}'.format(headless_path),
