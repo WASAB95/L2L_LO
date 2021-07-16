@@ -17,7 +17,6 @@ import time
 '''
 - add sampling
 - make test static
-- fix all fixmes and todos in the code here
 - weights are saved as `{individual_index}{simulation_index}_weights_{type}.csv`
 - the key in the dictionary is `{individual_index}{simulation_index}_weights_{type}`
 '''
@@ -187,11 +186,16 @@ class EnKFOptimizee(Optimizee):
             self.load_weights(csv_path=self.parameters.path,
                               simulation_idx=index)
         # get new data
-        self.get_mnist_data(mnist_path=self.parameters.path)
+        self.get_mnist_data()
         if self.train_labels:
             self.optimizee_labels, self.random_ids = self.randomize_labels(
                 self.train_labels, size=self.parameters.n_batch)
             self.train_set = [self.train_set[r] for r in self.random_ids]
+            # save train set and train labels
+            # all individuals/simulations are getting the same batch of data
+            self.save_data_set(csv_path=self.parameters.path,
+                               trainset=self.train_set,
+                               targets=self.optimizee_labels)
 
         # Prepare for simulation
         n_output_clusters = self.config['n_output_clusters']
@@ -249,6 +253,10 @@ class EnKFOptimizee(Optimizee):
             self.optimizee_labels, self.random_ids = self.randomize_labels(
                 self.test_labels, size=self.parameters.n_test_batch)
             self.test_set = [self.test_set[r] for r in self.random_ids]
+            # save test set and test labels
+            self.save_data_set(csv_path=self.parameters.path,
+                               trainset=self.train_set,
+                               targets=self.optimizee_labels)
 
         indices = []
         for j in range(self.ensemble_size):
@@ -311,10 +319,10 @@ class EnKFOptimizee(Optimizee):
             self.dict_weights[key] = w[length:len(conns['sources']) + length]
             length = len(conns['sources'])
 
-    def save_data_set(self, csv_path, trainset, targets, simulation_idx):
+    @staticmethod
+    def save_data_set(csv_path, trainset, targets):
         df = pd.DataFrame({'train_set': trainset, 'targets': targets})
-        df.to_csv(os.path.join(csv_path,
-                               f'{self.ind_idx}{simulation_idx}_dataset.csv'))
+        df.to_csv(os.path.join(csv_path, 'dataset.csv'))
 
     def get_connections_sizes(self, csv_path):
         sizes = []

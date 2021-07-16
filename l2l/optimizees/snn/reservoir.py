@@ -15,7 +15,7 @@ from l2l.optimizees.snn import spike_generator, visualize
 class Reservoir:
     def __init__(self):
         fp = pathlib.Path(__file__).parent.absolute()
-        print(os.path.join(str(fp), 'config.json'))
+        print('Using config path: ', os.path.join(str(fp), 'config.json'))
         with open(
                 os.path.join(str(fp), 'config.json')) as jsonfile:
             self.config = json.load(jsonfile)
@@ -72,7 +72,7 @@ class Reservoir:
         self.mean_ca_out_e = [[] for _ in range(self.n_output_clusters)]
         self.mean_ca_out_i = [[] for _ in range(self.n_output_clusters)]
 
-    def connect_network(self, path):
+    def connect_network(self, path='.'):
         self.prepare_network()
         # Do the connections
         self.connect_internal_bulk()
@@ -610,7 +610,7 @@ class Reservoir:
                     self.clear_spiking_events()
                 else:
                     self.record_ca(record_out=True)
-                self.record_connectivity()
+                # self.record_connectivity()
             print("Simulation loop {} finished successfully".format(idx))
             print('Mean out e ', self.mean_ca_out_e)
             print('Mean e ', self.mean_ca_e)
@@ -625,7 +625,7 @@ class Reservoir:
     @staticmethod
     def replace_weights(path='.', index='00', typ='e'):
         # Read the connections, i.e. sources and targets
-        conns = pd.read_csv(os.path.join(path, f'{index}_weights_{typ}'))
+        conns = pd.read_csv(os.path.join(path, f'{index}_weights_{typ}.csv'))
         # extract the weights and connections
         sources = conns['source'].values
         targets = conns['target'].values
@@ -714,15 +714,42 @@ class Reservoir:
 
 
 if __name__ == "__main__":
+
+    def _create_example_dataset(mnist_path='./mnist784_dat/',
+                                target_label='0'):
+        from l2l.optimizers.kalmanfilter.data import fetch
+        train_set, train_labels, test_set, test_labels = fetch(path=mnist_path,
+                                                               labels=target_label)
+        df = pd.DataFrame({'train_set': train_set, 'targets': train_labels})
+        df.to_csv(os.path.join(mnist_path, 'dataset.csv'))
+        return train_set, train_labels
+
+    def _save_weights(path: str = './',
+                      n_simulations: int = 1,
+                      mu: float = 100., sigma: float = 50.,
+                      ind_idx: int = 0):
+        for i in range(n_simulations):
+            for typ in ['eeo', 'eio', 'ieo', 'iio']:
+                conns = pd.read_csv(os.path.join(csv_path,
+                                                 '{}_connections.csv'.format(typ)))
+                key = f'{ind_idx}{i}_weights_{typ}'
+                size = len(conns)
+                conns['weights'] = np.random.normal(mu, sigma, size)
+                conns.to_csv(os.path.join(path, f'{key}.csv'))
+
+    # init the reservoir (no creation of the network yet)
     reservoir = Reservoir()
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--create', action="store_true",
                         help='Creates the network architecture, should be run once at the beginning')
     parser.add_argument('-s', '--simulate', action="store_true",
                         help='Simulates the network, should run after the creation')
-    parser.add_argument('-p', '--path', help='Path to csv files')
-    parser.add_argument('-i', '--index', type=int, help='Index of the run')
-    parser.add_argument('--record_spiking_firingrate', default=True, type=bool)
+    parser.add_argument('-p', '--path', type=str, help='Path to csv files')
+    parser.add_argument('-i', '--index', type=str, help='Index of the run')
+    parser.add_argument('-rfr', '--record_spiking_firingrate', default=True, type=bool)
+    parser.add_argument('-t', '--test', action='store_true',
+                        help='To test the reservoir simulation')
+
     args = parser.parse_args()
     if args.create:
         size_eeo, size_eio, size_ieo, size_iio = reservoir.connect_network(args.path)
@@ -738,7 +765,29 @@ if __name__ == "__main__":
             path=args.path,
             train_set=dataset,
             targets=labels,
+            # there shouldn't be individuals > 9, so the first index
+            # should be only one digit
             gen_idx=int(index[0]),
+            # the rest is the simulation index
             ind_idx=int(index[1:]),
         )
-
+    elif args.test:
+        csv_path = args.path
+        dataset, labels = _create_example_dataset()
+        size_eeo, size_eio, size_ieo, size_iio = reservoir.connect_network(csv_path)
+        index = args.index
+        # data = pd.read_csv(os.path.join(csv_path, f'{index}_dataset.csv'))
+        # dataset = data['train_set'].values
+        # labels = data['targets'].values
+        _save_weights(path=csv_path, ind_idx=int(index[0]))
+        reservoir.simulate(
+            record_spiking_firingrate=args.record_spiking_firingrate,
+            path=args.path,
+            train_set=dataset[:2],
+            targets=labels[:2],
+            # there shouldn't be individuals > 9, so the first index
+            # should be only one digit
+            gen_idx=int(index[0]),
+            # the rest is the simulation index
+            ind_idx=int(index[1:]),
+        )
