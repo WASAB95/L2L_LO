@@ -2,7 +2,6 @@ import argparse
 import json
 import nest
 import numpy as np
-import os
 import pandas as pd
 import pathlib
 import pickle
@@ -82,6 +81,12 @@ class Reservoir:
         self.connect_internal_out()
         self.connect_bulk_to_out()
         self.connect_noise_out()
+
+        # if path does not exist create
+        if not os.path.exists(path):
+            print(f'Creating path {path}')
+            os.mkdir(path)
+
         # create connection types of
         # {'ee', 'ei', 'eoeo', 'eoio', 'ie', 'ii', 'ioeo', 'ioio'}
         # e/i is the connection type, o indicates output
@@ -98,10 +103,9 @@ class Reservoir:
             source, target = self._get_net_structure(p)
             conns = nest.GetConnections(
                 source=tuple(np.ravel(source)), target=tuple(np.ravel(target)))
-            if not os.path.isfile(os.path.join(path, f'{p}_connections.csv')):
-                self.save_connections(conns,
-                                      path=path,
-                                      typ=p)
+            if os.path.isfile(os.path.join(path, f'{p}_connections.csv')):
+                os.remove(os.path.join(path, f'{p}_connections.csv'))
+            self.save_connections(conns, path=path, typ=p)
             d[p] = len(conns)
         return d['eeo'], d['eio'], d['ieo'], d['iio']
 
@@ -250,7 +254,6 @@ class Reservoir:
                      syn_spec=syn_dict)
         nest.Connect(poisson_gen, self.nodes_i, "all_to_all",
                      syn_spec=syn_dict_i)
-
 
     def connect_noise_out(self):
         poisson_gen = nest.Create("poisson_generator", 1, {'rate': 10000.0}, )
@@ -631,7 +634,8 @@ class Reservoir:
         targets = conns['target'].values
         weights = conns['weights'].values
         # weights = conns['weight'].values
-        print(f'now replacing connection weights `{typ}` of simulation {index}')
+        print(
+            f'now replacing connection weights `{typ}` of simulation {index}')
         for (s, t, w) in zip(sources, targets, weights):
             syn_spec = {'weight': float(w),
                         'model': 'static_synapse',
@@ -746,13 +750,15 @@ if __name__ == "__main__":
                         help='Simulates the network, should run after the creation')
     parser.add_argument('-p', '--path', type=str, help='Path to csv files')
     parser.add_argument('-i', '--index', type=str, help='Index of the run')
-    parser.add_argument('-rfr', '--record_spiking_firingrate', default=True, type=bool)
+    parser.add_argument('-rfr', '--record_spiking_firingrate',
+                        default=True, type=bool)
     parser.add_argument('-t', '--test', action='store_true',
                         help='To test the reservoir simulation')
 
     args = parser.parse_args()
     if args.create:
-        size_eeo, size_eio, size_ieo, size_iio = reservoir.connect_network(args.path)
+        size_eeo, size_eio, size_ieo, size_iio = reservoir.connect_network(
+            args.path)
 
     elif args.simulate:
         csv_path = args.path
@@ -774,7 +780,8 @@ if __name__ == "__main__":
     elif args.test:
         csv_path = args.path
         dataset, labels = _create_example_dataset()
-        size_eeo, size_eio, size_ieo, size_iio = reservoir.connect_network(csv_path)
+        size_eeo, size_eio, size_ieo, size_iio = reservoir.connect_network(
+            csv_path)
         index = args.index
         # data = pd.read_csv(os.path.join(csv_path, f'{index}_dataset.csv'))
         # dataset = data['train_set'].values
