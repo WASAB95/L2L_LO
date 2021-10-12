@@ -2,6 +2,7 @@ import argparse
 import json
 import nest
 import numpy as np
+import os
 import pandas as pd
 import pathlib
 import pickle
@@ -12,6 +13,9 @@ from l2l.optimizees.snn import spike_generator, visualize
 
 
 class Reservoir:
+    """
+    Class reservoir network (LSM) with LIF neurons works with NEST 2
+    """
     def __init__(self):
         fp = pathlib.Path(__file__).parent.absolute()
         print('Using config path: ', os.path.join(str(fp), 'config.json'))
@@ -741,6 +745,7 @@ if __name__ == "__main__":
                 conns['weights'] = np.random.normal(mu, sigma, size)
                 conns.to_csv(os.path.join(path, f'{key}.csv'))
 
+    # set the random seed
     # init the reservoir (no creation of the network yet)
     reservoir = Reservoir()
     parser = argparse.ArgumentParser()
@@ -750,12 +755,15 @@ if __name__ == "__main__":
                         help='Simulates the network, should run after the creation')
     parser.add_argument('-p', '--path', type=str, help='Path to csv files')
     parser.add_argument('-i', '--index', type=str, help='Index of the run')
+    parser.add_argument('-g', '--generation', type=str, help='Generation index')
     parser.add_argument('-rfr', '--record_spiking_firingrate',
                         default=True, type=bool)
     parser.add_argument('-t', '--test', action='store_true',
                         help='To test the reservoir simulation')
 
     args = parser.parse_args()
+    # set the random seed
+    np.random.seed(args.generation)
     if args.create:
         size_eeo, size_eio, size_ieo, size_iio = reservoir.connect_network(
             args.path)
@@ -772,10 +780,10 @@ if __name__ == "__main__":
             train_set=dataset,
             targets=labels,
             # there shouldn't be individuals > 9, so the first index
-            # should be only one digit
-            gen_idx=int(index[0]),
-            # the rest is the simulation index
-            ind_idx=int(index[1:]),
+            # should be only one digit, the rest is simulation index
+            # i.e. the ensemble_size
+            ind_idx=int(index[0]),
+            gen_idx=int(args.generation),
         )
     elif args.test:
         csv_path = args.path
@@ -794,7 +802,7 @@ if __name__ == "__main__":
             targets=labels[:2],
             # there shouldn't be individuals > 9, so the first index
             # should be only one digit
-            gen_idx=int(index[0]),
+            gen_idx=int(args.generation),
             # the rest is the simulation index
-            ind_idx=int(index[1:]),
+            ind_idx=int(index[0]),
         )

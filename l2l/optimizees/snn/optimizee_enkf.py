@@ -116,7 +116,7 @@ class EnKFOptimizee(Optimizee):
         mu = self.config['mu']
         sigma = self.config['sigma']
         size_eeo, size_eio, size_ieo, size_iio = self.get_connections_sizes(self.parameters.path)
-        for i in self.parameters.n_simulations:
+        for i in range(self.ensemble_size):
             self.dict_weights[
                 f'{self.ind_idx}{i}_weights_eeo'] = np.random.normal(mu, sigma,
                                                                      size_eeo)
@@ -137,12 +137,15 @@ class EnKFOptimizee(Optimizee):
     def execute_subprocess(self, csv_path, index='00', simulation='--create'):
         if simulation == '--create' or simulation == '-c':
             sub = subprocess.run(
-                ['sbatch', f'{simulation}', '-p', f'{csv_path}'],
+                ['sbatch', f'{simulation}',
+                 '-p', f'{csv_path}',
+                 '-g', f'{self.gen_idx}'],
                 check=True)
         else:
             sub = subprocess.run([
                 'sbatch', f'{simulation}',
                 '--index', f'{index}',
+                '--generation', f'{self.gen_idx}',
                 '--path', f'{csv_path}',
                 '--record_spiking_firingrate', f'{self.parameters.record_spiking_firingrate}',
             ],
@@ -181,7 +184,7 @@ class EnKFOptimizee(Optimizee):
                 self.create_batchfile(csv_path=self.parameters.path)
             self.create_ensembles()
         # load the latest weights
-        for i in range(self.parameters.n_simulations):
+        for i in range(self.ensemble_size):
             index = f'{self.ind_idx}{i}'
             self.load_weights(csv_path=self.parameters.path,
                               simulation_idx=index)
@@ -195,7 +198,8 @@ class EnKFOptimizee(Optimizee):
             # all individuals/simulations are getting the same batch of data
             self.save_data_set(csv_path=self.parameters.path,
                                trainset=self.train_set,
-                               targets=self.optimizee_labels)
+                               targets=self.optimizee_labels,
+                               generation=self.gen_idx)
 
         # Prepare for simulation
         n_output_clusters = self.config['n_output_clusters']
@@ -320,9 +324,16 @@ class EnKFOptimizee(Optimizee):
             length = len(conns['sources'])
 
     @staticmethod
-    def save_data_set(csv_path, trainset, targets):
-        df = pd.DataFrame({'train_set': trainset, 'targets': targets})
-        df.to_csv(os.path.join(csv_path, 'dataset.csv'))
+    def save_data_set(file_path, trainset, targets, generation):
+        """
+        Saves the dataset and label as a numpy file per generation.
+        If the file already exists the data is not created.
+        """
+        filename = f"{generation}_dataset.npy"
+        if not os.path.exists(filename):
+            np.save(os.path.join(file_path, filename),
+                    {'train_set': trainset, 'targets': targets},
+                    allow_pickle=True)
 
     def get_connections_sizes(self, csv_path):
         sizes = []
