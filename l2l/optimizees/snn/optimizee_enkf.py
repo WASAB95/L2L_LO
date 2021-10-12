@@ -192,7 +192,7 @@ class EnKFOptimizee(Optimizee):
         self.get_mnist_data()
         if self.train_labels:
             self.optimizee_labels, self.random_ids = self.randomize_labels(
-                self.train_labels, size=self.parameters.n_batch)
+                self.train_labels, size=self.parameters.n_test_batch)
             self.train_set = [self.train_set[r] for r in self.random_ids]
             # save train set and train labels
             # all individuals/simulations are getting the same batch of data
