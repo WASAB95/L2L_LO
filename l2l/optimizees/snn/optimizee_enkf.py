@@ -196,7 +196,7 @@ class EnKFOptimizee(Optimizee):
             self.train_set = [self.train_set[r] for r in self.random_ids]
             # save train set and train labels
             # all individuals/simulations are getting the same batch of data
-            self.save_data_set(csv_path=self.parameters.path,
+            self.save_data_set(file_path=self.parameters.path,
                                trainset=self.train_set,
                                targets=self.optimizee_labels,
                                generation=self.gen_idx)
