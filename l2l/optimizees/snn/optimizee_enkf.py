@@ -258,9 +258,10 @@ class EnKFOptimizee(Optimizee):
                 self.test_labels, size=self.parameters.n_test_batch)
             self.test_set = [self.test_set[r] for r in self.random_ids]
             # save test set and test labels
-            self.save_data_set(csv_path=self.parameters.path,
+            self.save_data_set(file_path=self.parameters.path,
                                trainset=self.train_set,
-                               targets=self.optimizee_labels)
+                               targets=self.optimizee_labels,
+                               generation=self.gen_idx)
 
         indices = []
         for j in range(self.ensemble_size):
