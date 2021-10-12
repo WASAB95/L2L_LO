@@ -22,12 +22,12 @@ import time
 '''
 
 EnKFOptimizeeParameters = namedtuple(
-    'EnKFOptimizeeParameters', ['path',
+    'EnKFOptimizeeParameters', ['path',    # path to the result files
                                 'record_spiking_firingrate',
                                 'save_plot',
                                 'replace_weights',
-                                'n_batch',
-                                'n_test_batch',
+                                'n_batch',    # n images to be shown
+                                'n_test_batch',    # n test images to be shown
                                 ])
 
 
