@@ -763,7 +763,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     # set the random seed
-    np.random.seed(args.generation)
+    np.random.seed(int(args.generation))
     if args.create:
         size_eeo, size_eio, size_ieo, size_iio = reservoir.connect_network(
             args.path)

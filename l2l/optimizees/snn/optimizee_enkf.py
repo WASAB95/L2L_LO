@@ -19,6 +19,7 @@ import time
 - make test static
 - weights are saved as `{individual_index}{simulation_index}_weights_{type}.csv`
 - the key in the dictionary is `{individual_index}{simulation_index}_weights_{type}`
+- how to return the fitness (best, mean)? 
 '''
 
 EnKFOptimizeeParameters = namedtuple(
@@ -292,7 +293,7 @@ class EnKFOptimizee(Optimizee):
             print('Fitness {} for target {}, softmax {}, argmax {}'.format(
                 fitness, target, model_outs[i], argmax[i]))
         self.dict_weights.clear()
-        return fitnesses
+        return (np.mean(fitnesses),)
 
     def save_weights(self, csv_path, simulation_idx):
         # Read the connections

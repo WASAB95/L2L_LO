@@ -972,7 +972,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     # set the random seed
-    np.random.seed(args.generation)
+    np.random.seed(int(args.generation))
     if args.create:
         size_eeo, size_eio, size_ieo, size_iio = reservoir.connect_network(args.path)
 
@@ -983,7 +983,7 @@ if __name__ == "__main__":
         # there shouldn't be individuals > 9, so the first index
         # should be only one digit
         individual_id = int(index[0])
-        generation_id = int(args.generation),
+        generation_id = int(args.generation)
         data = np.load(os.path.join(csv_path, f"{generation_id}_dataset.npy"),
                        allow_pickle=True).item()
         dataset = data["train_set"]
@@ -1006,7 +1006,7 @@ if __name__ == "__main__":
         individual_id = int(index[0])
         np.save(os.path.join(csv_path, f'{generation_id}_dataset.npy'), {'train_set': dataset, 'targets': labels})
         # create the connections or load them
-        # size_eeo, size_eio, size_ieo, size_iio = reservoir.connect_network(csv_path)
+        size_eeo, size_eio, size_ieo, size_iio = reservoir.connect_network(csv_path)
         print('network connected')
         # data = pd.read_csv(os.path.join(csv_path, f'{index}_dataset.csv'))
         # dataset = data['train_set'].values
