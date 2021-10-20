@@ -153,6 +153,7 @@ class EnsembleKalmanFilter(Optimizer):
 
         # self.targets = parameters.observations
 
+        self.g = 0
         # MNIST DATA HANDLING
         self.target_label = ['0', '1']
         self.other_label = ['2', '3', '4', '5', '6', '7', '8', '9']
@@ -177,7 +178,6 @@ class EnsembleKalmanFilter(Optimizer):
         for e in self.eval_pop:
             e["targets"] = self.optimizee_labels
             e["train_set"] = [self.train_set[r] for r in self.random_ids]
-        self.g = 0
 
         self._expand_trajectory(traj)
 
@@ -200,6 +200,58 @@ class EnsembleKalmanFilter(Optimizer):
         """
         rnd = np.random.randint(low=0, high=len(labels), size=size)
         return [int(labels[i]) for i in rnd], rnd
+
+    def get_separated_data(self, train_labels, train_set, target_labels,
+                           get_n=False, **kwargs):
+        """
+        Separates the data set according to the test labels,
+        e.g. [1,1,2,0,0,2] -> [[0,0],[1,1],[2,2]].
+        It returns the separated data set and labels.
+
+        :param train_labels: array_like, labels of the data set
+        :param train_set: array_like, the data set itself
+        :param target_labels: array_like, the labels/digits which are going to
+            be seperated
+        :param get_n: bool, if `True` returns the n-th data element
+        """
+        if not get_n:
+            data_set = []
+            data_labels = []
+            for tl in target_labels:
+                indices = np.array(train_labels) == tl
+                data_set.append(np.array(train_set)[indices])
+                data_labels.append(np.array(train_labels)[indices])
+            return data_set, data_labels
+        else:
+            self._get_every_n_data(train_set, **kwargs)
+
+    @staticmethod
+    def _get_every_n_data(data_set, targets, gen_id, n_data=10):
+        """
+        Return every `n_data` data element, according to the generation
+        index `gen_id`. Additionally, it makes sure not to index beyond the
+        inidividual data elements length.
+
+        Notes:
+        Requires separated dataset to work.
+        Should be used in combination with `get_separated_data` function.
+
+        :param data_set: array_like, the data set as a list or nd.array
+        :param gen_id: int, the generation index
+        :param n_data: int, the number of data elements to be returned
+            Default is 10.
+        """
+        # get first the indices
+        index0 = gen_id * n_data
+        index1 = gen_id * n_data + n_data
+        nth_data = []
+        nth_label = []
+        for ds, targ in zip(data_set, targets):
+            # modulo operation to not go beyond the total length of the
+            # data element
+            nth_data.extend(ds[index0 % len(ds): index1 % len(ds)])
+            nth_label.extend(targ[index0 % len(targ): index1 % len(targ)])
+        return nth_data, nth_label
 
     def post_process(self, traj, fitnesses_results):
         self.eval_pop.clear()
