@@ -153,7 +153,7 @@ class ReservoirNetwork:
     def connect_internal_bulk(self):
         syn_dict_e = {
             "synapse_model": "random_synapse",
-            "weight": nest.random.normal(self.psc_e, 50.0),
+            "weight": nest.random.normal(self.psc_e, 150.0),
         }
         syn_dict_i = {
             "synapse_model": "random_synapse_i",
@@ -191,17 +191,18 @@ class ReservoirNetwork:
 
     def connect_external_input(self):
         nest.SetStatus(self.noise, {"rate": self.bg_rate})
+        weight = 8
         nest.Connect(
             self.noise,
             self.nodes_e,
             "all_to_all",
-            {"weight": self.psc_ext, "delay": 1.0},
+            {"weight": weight, "delay": 1.0},
         )
         nest.Connect(
             self.noise,
             self.nodes_i,
             "all_to_all",
-            {"weight": self.psc_ext, "delay": 1.0},
+            {"weight": weight, "delay": 1.0},
         )
 
         if self.input_type == "bellec":
@@ -342,18 +343,19 @@ class ReservoirNetwork:
     def connect_greyvalue_input(self):
         """Connects input to bulk"""
         indegree = 8
+        weight = 100.
         syn_dict_e = {
             "synapse_model": "random_synapse",
             #                                    size=weights_len_e)}
-            "weight": nest.random.normal(self.psc_e, 50.0),
+            "weight": nest.random.normal(self.psc_e, weight),
         }
         syn_dict_i = {
             "synapse_model": "random_synapse_i",
-            "weight": nest.random.normal(self.psc_e, 50.0),
+            # "weight": nest.random.normal(1, 2),
         }
         syn_dict_input = {
             "synapse_model": "random_synapse",
-            "weight": nest.random.normal(self.psc_e, 50.0),
+            "weight": nest.random.normal(self.psc_e, weight),
         }
         nest.Connect(
             self.pixel_rate_generators,
@@ -629,8 +631,9 @@ class ReservoirNetwork:
                 else:
                     self.record_ca(record_out=True)
             print("Simulation loop {} finished successfully".format(idx))
+            # print(nest.GetStatus(self.out_detector_e, keys='events'))
             print("Mean out e ", self.mean_ca_out_e)
-            print("Mean e ", self.mean_ca_e)
+            # print("Mean e ", self.mean_ca_e)
             print(f"Mean out i {self.mean_ca_out_i}")
             model_outs.append(self.mean_ca_out_e.copy())
             # clear lists
@@ -663,8 +666,8 @@ if __name__ == '__main__':
     reservoir.create_network()
     reservoir.connect_network()
     model_outs = reservoir.simulate(record_spiking_firingrate=True,
-                                    train_set=dataset[:2],
-                                    targets=labels[:2],
+                                    train_set=dataset[:1],
+                                    targets=labels[:1],
                                     gen_idx=0,
                                     ind_idx=0,
                                     path='.',
