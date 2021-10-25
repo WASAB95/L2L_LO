@@ -14,8 +14,6 @@ class ReservoirNetwork:
         # Resolution, simulation steps in [ms]
         self.dt = self.config["dt"]
         self.neuron_model = self.config["neuron_model"]
-        seed = np.uint32(self.config["seed"])
-        nest.SetKernelStatus({"rng_seed": seed})
         # Number of neurons per layer
         self.n_input_neurons = self.config["n_input"]
         self.n_bulk_ex_neurons = self.config["n_bulk_ex"]
@@ -94,9 +92,10 @@ class ReservoirNetwork:
     def reset_kernel(self):
         nest.ResetKernel()
         nest.set_verbosity("M_ERROR")
-        nest.SetKernelStatus({"resolution": self.dt,
-                              "local_num_threads": self.config['threads'],
-                              "overwrite_files": True})
+        nest.rng_seed = int(self.config["seed"])
+        nest.local_num_threads = int(self.config['threads'])
+        nest.resolution = self.dt
+        nest.overwrite_files = True
 
     @staticmethod
     def create_synapses():
