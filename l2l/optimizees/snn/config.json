@@ -2,6 +2,7 @@
     "input_type": "greyvalue",
     "neuron_model": "iaf_psc_alpha",
     "seed": 1,
+    "threads": 1,
     "n_input": 784,
     "n_bulk_ex": 100,
     "n_bulk_in": 50,
