@@ -152,7 +152,7 @@ class ReservoirNetwork:
     def connect_internal_bulk(self):
         syn_dict_e = {
             "synapse_model": "random_synapse",
-            "weight": nest.random.normal(self.psc_e, 150.0),
+            "weight": nest.random.normal(self.psc_e, 50.0),
         }
         syn_dict_i = {
             "synapse_model": "random_synapse_i",
@@ -284,7 +284,7 @@ class ReservoirNetwork:
 
         syn_dict_e = {
             "synapse_model": "random_synapse",
-            "weight": nest.random.normal(self.psc_e, 10.0),
+            "weight": nest.random.normal(self.psc_e, 50.0),
         }
         syn_dict_i = {
             "synapse_model": "random_synapse_i",
