@@ -92,8 +92,8 @@ class ReservoirNetwork:
     def reset_kernel(self):
         nest.ResetKernel()
         nest.set_verbosity("M_ERROR")
-        nest.rng_seed = int(self.config["seed"])
         nest.local_num_threads = int(self.config['threads'])
+        nest.rng_seed = int(self.config["seed"])
         nest.resolution = self.dt
         nest.overwrite_files = True
 
@@ -190,7 +190,7 @@ class ReservoirNetwork:
 
     def connect_external_input(self):
         nest.SetStatus(self.noise, {"rate": self.bg_rate})
-        weight = 8
+        weight = 5.5
         nest.Connect(
             self.noise,
             self.nodes_e,
@@ -270,25 +270,25 @@ class ReservoirNetwork:
         conn_dict_e = {
             "rule": "fixed_indegree",
             # 0.3 * self.number_out_exc_neurons
-            "indegree": int(self.n_bulk_ex_neurons),
+            "indegree":  int(self.n_bulk_ex_neurons/(self.n_neurons_out_e/4)),
             "allow_multapses": False,
             "allow_autapses": False,
         }
         conn_dict_i = {
             "rule": "fixed_indegree",
             # 0.2 * self.number_out_exc_neurons
-            "indegree": int(self.n_bulk_in_neurons),
+            "indegree":  int(self.n_bulk_in_neurons/(self.n_neurons_out_e/4)),
             "allow_multapses": False,
             "allow_autapses": False,
         }
-
+        std = 30.0
         syn_dict_e = {
             "synapse_model": "random_synapse",
-            "weight": nest.random.normal(self.psc_e, 50.0),
+            "weight": nest.random.normal(self.psc_e, std),
         }
         syn_dict_i = {
             "synapse_model": "random_synapse_i",
-            "weight": nest.random.normal(self.psc_i, 10.0),
+            "weight": nest.random.normal(self.psc_i, std),
         }
         for j in range(self.n_output_clusters):
             nest.Connect(
@@ -635,6 +635,10 @@ class ReservoirNetwork:
             # print("Mean e ", self.mean_ca_e)
             print(f"Mean out i {self.mean_ca_out_i}")
             model_outs.append(self.mean_ca_out_e.copy())
+            print('Input spikes ', len(nest.GetStatus(self.input_spike_detector, keys='events')[0]['times']))
+            print('Bulk spikes', len(nest.GetStatus(self.bulks_detector_ex, keys='events')[0]['times']))
+            print('Out spikes', len(nest.GetStatus(self.out_detector_e, keys='events')[0]['times']))
+            print('Out spikes', len(nest.GetStatus(self.out_detector_e, keys='events')[1]['times']))
             # clear lists
             self.clear_records()
         return model_outs
@@ -670,5 +674,5 @@ if __name__ == '__main__':
                                     gen_idx=0,
                                     ind_idx=0,
                                     path='.',
-                                    save_plot=True,
+                                    save_plot=False,
                                     with_data=True)
