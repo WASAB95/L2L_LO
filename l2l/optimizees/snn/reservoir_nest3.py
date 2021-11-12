@@ -102,7 +102,7 @@ class Reservoir:
         d = {}
         for p in perms:
             source, target = self._get_net_structure(p)
-            # TODO Check if this is correct
+            length_conns = 0
             if not isinstance(source, list):
                 source = [source]
             if not isinstance(target, list):
@@ -110,11 +110,14 @@ class Reservoir:
             conns = []
             for s in source:
                 for t in target:
-                    conns.append(nest.GetConnections(source=s, target=t))
+                    synapse_collection = nest.GetConnections(source=s, target=t)
+                    conns.append(synapse_collection)
+                    assert len(synapse_collection.target) == len(synapse_collection.source)
+                    length_conns = len(synapse_collection.source)
             if os.path.isfile(os.path.join(path, f"{p}_connections.csv")):
                 os.remove(os.path.join(path, f"{p}_connections.csv"))
             self.save_connections(conns, path=path, typ=p)
-            d[p] = len(conns)
+            d[p] = length_conns
         return d["eeo"], d["eio"], d["ieo"], d["iio"]
 
     def prepare_network(self):
@@ -777,7 +780,7 @@ class Reservoir:
                 path=path,
                 save=save_plot,
             )
-            sim_steps = np.arange(0, self.t_sim, self.record_interval)
+            sim_steps = np.arange(0, self.t_sim, int(self.record_interval))
             for j, step in enumerate(sim_steps):
                 # Do the simulation
                 nest.Simulate(self.record_interval)
@@ -800,7 +803,7 @@ class Reservoir:
             print("Mean e ", self.mean_ca_e)
             print('Input spikes ', len(nest.GetStatus(self.input_spike_detector, keys='events')[0]['times']))
             print('Bulk spikes', len(nest.GetStatus(self.bulks_detector_ex, keys='events')[0]['times']))
-            for n in self.n_output_clusters:
+            for n in range(self.n_output_clusters):
                 print('Out spikes', len(nest.GetStatus(self.out_detector_e, keys='events')[n]['times']))
             model_outs.append(self.mean_ca_out_e.copy())
             # clear lists
