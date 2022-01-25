@@ -23,9 +23,10 @@ EnsembleKalmanFilterParameters = namedtuple(
                              'n_repeat_batch', 'stop_criterion',
                              'scale_weights', 'sample',
                              'best_n', 'worst_n', 'pick_method',
+                             'data_loader_method', 'shuffle', 'n_slice',
                              'kwargs'],
-    defaults=(True, False, 0.25, 0.25, 'random', {'pick_probability': 0.7,
-                                                  'loc': 0, 'scale': 0.1})
+    defaults=(True, False, 0.25, 0.25, 'random', 'separated', False, 4,
+              {'pick_probability': 0.7, 'loc': 0, 'scale': 0.1})
 )
 
 EnsembleKalmanFilterParameters.__doc__ = """
@@ -35,7 +36,7 @@ EnsembleKalmanFilterParameters.__doc__ = """
 :param pop_size: int, Minimal number of individuals per simulation.
     Corresponds to number of ensembles
 :param n_batches: int, Number of mini-batches to use for training
-:param n_repeat_batch: int, How often the same image batch should be shown
+param n_repeat_batch: int, How often the same image batch should be shown
 :param online: bool, Indicates if only one data point will used
     Default: False
 :param scale_weights: bool, scales weights between [0, 1]
@@ -51,6 +52,21 @@ EnsembleKalmanFilterParameters.__doc__ = """
     which will replace the worst individuals. (see also :param kwargs) 
     In combination with `sampling`.
     Default: 'random'.
+:param data_loader_method: str, Method on how to load the data set. 
+    - `random`: Just randomly pick `n_batch` images from the whole data set.
+    - 'separated': Separates the data set according to the test labels,
+        e.g. [1,1,2,0,0,2] -> [[0,0],[1,1],[2,2]]. 
+        See also l2l.optimizers.kalmanfilter.get_separated_data
+:param shuffle: bool, if `True` shuffles the data and labels. In combination 
+    with `data_loader_method`.  
+        Default is False. 
+        See also l2l.optimizers.kalmanfilter.get_separated_data
+:param n_slice: int, How many slices are going to be taken.
+        E.g. if target labels are `[0,1,2]` and `n_slice` 4 then the
+        function will return `3 * 4 = 12` labels and corresponding data back. 
+        The slice starts at the generation number. Used in combination with
+        `shuffle=True`. Default is 4.
+        See also l2l.optimizers.kalmanfilter.get_separated_data
 :param kwargs: dict, key word arguments if `sampling` is True.
     - `pick_probability` - float, probability to pick the first best individual
       Default: 0.7
@@ -89,7 +105,6 @@ class EnsembleKalmanFilter(Optimizer):
         self.optimizee_create_individual = optimizee_create_individual
         self.optimizee_fitness_weights = optimizee_fitness_weights
         self.optimizee_prepare = optimizee_prepare
-        self.parameters = parameters
 
         traj.f_add_parameter('gamma', parameters.gamma, comment='Noise level')
         traj.f_add_parameter('maxit', parameters.maxit,
@@ -109,6 +124,12 @@ class EnsembleKalmanFilter(Optimizer):
                              comment='stopping threshold')
         traj.f_add_parameter('sample', parameters.sample,
                              comment='sampling on/off')
+        traj.f_add_parameter('data_loader_method', parameters.data_loader_method,
+                             comment='How to load data')
+        traj.f_add_parameter('shuffle', parameters.shuffle,
+                             comment='Shuffles the data')
+        traj.f_add_parameter('n_slice', parameters.n_slice,
+                             comment='Take n slices of data')
         traj.f_add_parameter('scale_weights', parameters.scale_weights,
                              comment='scaling of weights')
         if parameters.sample:
@@ -141,8 +162,9 @@ class EnsembleKalmanFilter(Optimizer):
                             for _ in range(parameters.pop_size)]
 
         if optimizee_bounding_func is not None:
-            current_eval_pop = [self.optimizee_bounding_func(ind) for ind in
-                                current_eval_pop]
+            pass
+            # current_eval_pop = [self.optimizee_bounding_func(ind) for ind in
+            #                     current_eval_pop]
 
         self.eval_pop = current_eval_pop
         self.best_individual = []
@@ -150,13 +172,14 @@ class EnsembleKalmanFilter(Optimizer):
         self.fitness_all = []
         # weights to save pro certain generation for further analysis
         self.weights_to_save = []
+        self.cov_to_save = []
 
         # self.targets = parameters.observations
 
-        self.g = 0
+        self.g = traj.individual.generation # 0
         # MNIST DATA HANDLING
-        self.target_label = ['0', '1']
-        self.other_label = ['2', '3', '4', '5', '6', '7', '8', '9']
+        self.target_label = ['0', '1', '2']
+        self.other_label = ['3', '4', '5', '6', '7', '8', '9']
         self.train_set = None
         self.train_labels = None
         self.other_set = None
@@ -167,17 +190,37 @@ class EnsembleKalmanFilter(Optimizer):
         self.test_labels_other = None
         # get the targets
         self.get_mnist_data()
+        self.data_loader_method = traj.parameters.data_loader_method
         if self.train_labels:
-            self.optimizee_labels, self.random_ids = self.randomize_labels(
-                self.train_labels, size=traj.n_batches)
+            if self.data_loader_method == 'random':
+                self.optimizee_labels, self.random_ids = self.randomize_labels(
+                    self.train_labels, size=traj.n_batches)
+            elif self.data_loader_method == 'separated':
+                self.optimizee_data, self.optimizee_labels = self.get_separated_data(
+                    self.train_labels, self.train_set, self.target_label,
+                    shuffle=traj.parameters.shuffle,
+                    n_slice=traj.parameters.n_slice)
+                if not traj.parameters.shuffle:
+                    rand_ind = self.random_state.randint(0, len(self.target_label), 1)[0]
+                    self.optimizee_labels, self.random_ids = self.randomize_labels(
+                        self.optimizee_labels[rand_ind], size=traj.n_batches)
         else:
             raise AttributeError('Train Labels are not set, please check.')
         logger.info('First dataset is set. Targets are {}'.format(
             self.optimizee_labels))
 
         for e in self.eval_pop:
-            e["targets"] = self.optimizee_labels
-            e["train_set"] = [self.train_set[r] for r in self.random_ids]
+            if self.data_loader_method == 'random':
+                e["targets"] = self.optimizee_labels
+                e["train_set"] = [self.train_set[r] for r in self.random_ids]
+            elif self.data_loader_method == 'separated':
+                if traj.parameters.shuffle:
+                    e["targets"] = self.optimizee_labels
+                    e["train_set"] = self.optimizee_data
+                else:
+                    e["targets"] = self.optimizee_labels
+                    e["train_set"] = [self.optimizee_data[rand_ind][r] for r in
+                                      self.random_ids]
 
         self._expand_trajectory(traj)
 
@@ -188,8 +231,7 @@ class EnsembleKalmanFilter(Optimizer):
         self.other_set, self.other_labels, self.test_set_other, self.test_labels_other = data.fetch(
             path='./mnist784_dat/', labels=self.other_label)
 
-    @staticmethod
-    def randomize_labels(labels, size):
+    def randomize_labels(self, labels, size):
         """
         Randomizes given labels `labels` with size `size`.
 
@@ -198,11 +240,11 @@ class EnsembleKalmanFilter(Optimizer):
         :return list of randomized labels
         :return list of random numbers used to randomize the `labels` list
         """
-        rnd = np.random.randint(low=0, high=len(labels), size=size)
+        rnd = self.random_state.randint(low=0, high=len(labels), size=size)
         return [int(labels[i]) for i in rnd], rnd
 
     def get_separated_data(self, train_labels, train_set, target_labels,
-                           get_n=False, **kwargs):
+                           shuffle=False, gen_id=0, n_slice=4):
         """
         Separates the data set according to the test labels,
         e.g. [1,1,2,0,0,2] -> [[0,0],[1,1],[2,2]].
@@ -211,22 +253,45 @@ class EnsembleKalmanFilter(Optimizer):
         :param train_labels: array_like, labels of the data set
         :param train_set: array_like, the data set itself
         :param target_labels: array_like, the labels/digits which are going to
-            be seperated
-        :param get_n: bool, if `True` returns the n-th data element
+            be separated
+        :param gen_id: int, the generation index. Used in combination with `
+            shuffle=True`. Default is 0.
+        :param n_slice: int, how many slices are going to be taken.
+            E.g. if target labels are `[0,1,2]` and `n_slice` 4 then the
+            function will return `3 * 4 = 12` labels and corresponding data
+            back. The slice starts at `gen_id`. Used in combination with
+            `shuffle=True`. Default is 4.
+        :param shuffle: bool, if `True` shuffles the data and labels.
+            Default is False.
         """
-        if not get_n:
-            data_set = []
-            data_labels = []
-            for tl in target_labels:
-                indices = np.array(train_labels) == tl
-                data_set.append(np.array(train_set)[indices])
-                data_labels.append(np.array(train_labels)[indices])
-            return data_set, data_labels
+        data_set = []
+        data_labels = []
+        for tl in target_labels:
+            indices = np.array(train_labels) == tl
+            data_set.append(np.array(train_set)[indices])
+            data_labels.append(np.array(train_labels)[indices])
+        if shuffle:
+            sliced_data = []
+            sliced_labels = []
+            index0 = gen_id * n_slice
+            index1 = gen_id * n_slice + n_slice
+            for i in range(len(target_labels)):
+                len_data = len(data_set[i])
+                sliced_data.append(data_set[i][index0 % len_data: index1 % len_data])
+                len_labels = len(data_labels[i])
+                sliced_labels.append(data_labels[i][index0 % len_labels: index1 % len_labels])
+            # shuffle now
+            sliced_labels = np.array(sliced_labels).ravel()
+            shuffled_index = np.arange(sliced_labels.size)
+            self.random_state.shuffle(shuffled_index)
+            # reshape so that the shuffling is possible according the index
+            sliced_data = np.reshape(sliced_data, (shuffled_index.size, -1))
+            return sliced_data[shuffled_index], sliced_labels[shuffled_index].astype(int)
         else:
-            self._get_every_n_data(train_set, **kwargs)
+            return data_set, data_labels
 
     @staticmethod
-    def _get_every_n_data(data_set, targets, gen_id, n_data=10):
+    def _get_every_n_data(data_set, targets, gen_id, random_state, n_data=10, shuffle=True):
         """
         Return every `n_data` data element, according to the generation
         index `gen_id`. Additionally, it makes sure not to index beyond the
@@ -238,8 +303,12 @@ class EnsembleKalmanFilter(Optimizer):
 
         :param data_set: array_like, the data set as a list or nd.array
         :param gen_id: int, the generation index
+        :param targets all labels which correspond to the data set
         :param n_data: int, the number of data elements to be returned
             Default is 10.
+        :param shuffle: bool, If ``True`` then the function returns a
+            shuffled version of the data set and targets.
+            Default is True.
         """
         # get first the indices
         index0 = gen_id * n_data
@@ -251,7 +320,12 @@ class EnsembleKalmanFilter(Optimizer):
             # data element
             nth_data.extend(ds[index0 % len(ds): index1 % len(ds)])
             nth_label.extend(targ[index0 % len(targ): index1 % len(targ)])
-        return nth_data, nth_label
+        if shuffle:
+            shuffled_index = np.arange(len(nth_label))
+            random_state.shuffle(shuffled_index)
+            return np.array(nth_data)[shuffled_index], np.array(nth_label)[shuffled_index].astype(int)
+        else:
+            return np.array(nth_data), np.array(nth_label).astype(int)
 
     def post_process(self, traj, fitnesses_results):
         self.eval_pop.clear()
@@ -280,42 +354,58 @@ class EnsembleKalmanFilter(Optimizer):
             ens = ens / np.abs(ens).max()
             # ens, scaler = self._scale_weights(weights, normalize=True,
             #                                   method=pp.MinMaxScaler)
+
         # sampling step
-        if traj.sample:
-            ens, model_outs = self.sample_from_individuals(individuals=ens,
-                                                           model_output=model_outs,
-                                                           fitness=fitness,
-                                                           sampling_method=traj.sampling_method,
-                                                           pick_method=traj.pick_method,
-                                                           best_n=traj.best_n,
-                                                           worst_n=traj.worst_n / np.exp(
-                                                               self.g % traj.n_repeat_batch),
-                                                           **traj.kwargs
-                                                           )
+        # if traj.sample:
+        #     ens, model_outs = self.sample_from_individuals(individuals=ens,
+        #                                                    model_output=model_outs,
+        #                                                    fitness=fitness,
+        #                                                    sampling_method=traj.sampling_method,
+        #                                                    pick_method=traj.pick_method,
+        #                                                    best_n=traj.best_n,
+        #                                                    worst_n=traj.worst_n / np.exp(
+        #                                                        self.g % traj.n_repeat_batch),
+        #                                                    **traj.kwargs
+        #                                                    )
+
         best_indviduals = np.argsort(fitness)[::-1]
         current_res = np.sort(fitness)[::-1]
         logger.info('Sorted Fitness {}'.format(current_res))
-        self.fitness_all.append(current_res)
+        self.fitness_all.append(fitness)
         logger.info(
             'Best fitness {} in generation {}'.format(self.current_fitness,
                                                       self.g))
         logger.info('Best individuals index {}'.format(best_indviduals))
         logger.info('Mean of individuals {}'.format(np.mean(current_res)))
         self.best_individual.append((best_indviduals[0], current_res[0]))
-
-        model_outs = model_outs.reshape((ensemble_size,
-                                         len(self.target_label),
-                                         traj.n_batches))
-        enkf = EnKF(maxit=traj.maxit,
-                    online=traj.online,
-                    n_batches=traj.n_batches)
-        enkf.fit(ensemble=ens,
-                 ensemble_size=ensemble_size,
-                 observations=np.array(self.optimizee_labels),
-                 model_output=model_outs,
-                 gamma=gamma)
-        # These are all the updated weights for each ensemble
-        results = enkf.ensemble.cpu().numpy()
+        if not self.g % 10 == 0 and self.g >= 0:
+            if traj.sample:
+                # do sampling only in training phase
+                ens, model_outs = self.sample_from_individuals(individuals=ens,
+                                                               model_output=model_outs,
+                                                               fitness=fitness,
+                                                               sampling_method=traj.sampling_method,
+                                                               pick_method=traj.pick_method,
+                                                               best_n=traj.best_n,
+                                                               worst_n=traj.worst_n, # / (self.g % traj.n_repeat_batch /2 + 1),
+                                                               **traj.kwargs)
+            model_outs = model_outs.reshape((ensemble_size,
+                                             len(self.target_label),
+                                             len(self.optimizee_labels)))
+            enkf = EnKF(maxit=traj.maxit,
+                        online=traj.online,
+                        n_batches=len(self.optimizee_labels))
+            enkf.fit(ensemble=ens,
+                     ensemble_size=ensemble_size,
+                     observations=np.array(self.optimizee_labels),
+                     model_output=model_outs,
+                     gamma=gamma)
+            # These are all the updated weights for each ensemble
+            results = enkf.ensemble.cpu().numpy()
+        else: 
+            results = ens
+            # do the sampling step in test step
+            # if traj.sample and not self.g % 10 == 0 and self.g > 0:
         if traj.scale_weights:
             # rescale
             # (np.max(weights) - np.min(weights)) + np.min(weights)
@@ -355,15 +445,43 @@ class EnsembleKalmanFilter(Optimizer):
 
             fitnesses_results.clear()
             self.eval_pop = new_individual_list
-            if self.g % traj.n_repeat_batch == 0 and self.g > 0:
+            if self.g % traj.n_repeat_batch == 0 and self.g > 0 and not (self.g + 1) % 10 == 0:
                 logger.info('Changing dataset in generation {}'.format(self.g))
-                self.optimizee_labels, self.random_ids = self.randomize_labels(
-                    self.train_labels, size=traj.n_batches)
+                if self.data_loader_method == 'random':
+                    self.optimizee_labels, self.random_ids = self.randomize_labels(
+                        self.train_labels, size=traj.n_batches)
+                elif self.data_loader_method == 'separated':
+                    self.optimizee_data, self.optimizee_labels = self.get_separated_data(
+                        self.train_labels, self.train_set, self.target_label,
+                        shuffle=traj.parameters.shuffle,
+                        n_slice=traj.parameters.n_slice)
+                    if not traj.parameters.shuffle:
+                        rand_ind = self.random_state.randint(0, len(self.target_label), 1)[0]
+                        self.optimizee_labels, self.random_ids = self.randomize_labels(
+                            self.optimizee_labels[rand_ind],
+                            size=traj.n_batches)
                 logger.info('New targets are {}'.format(self.optimizee_labels))
                 for e in self.eval_pop:
-                    e["targets"] = self.optimizee_labels
-                    e["train_set"] = [self.train_set[r]
-                                      for r in self.random_ids]
+                    if self.data_loader_method == 'random':
+                        e["targets"] = self.optimizee_labels
+                        e["train_set"] = [self.train_set[r] for r in self.random_ids]
+                    elif self.data_loader_method == 'separated':
+                        if traj.parameters.shuffle:
+                            e["targets"] = self.optimizee_labels
+                            e["train_set"] = self.optimizee_data
+                        else:
+                            e["targets"] = self.optimizee_labels
+                            e["train_set"] = [self.optimizee_data[rand_ind][r] for r in
+                                              self.random_ids]
+            # Apply test set
+            elif (self.g + 1) % 10 == 0 and self.g > 0:
+                logger.info('Testing dataset in generation {}'.format(self.g))
+                logger.info('New test targets are {}'.format(self.test_labels[:len(self.optimizee_labels)]))
+                for e in self.eval_pop:
+                    e["targets"] = [int(t) for t in self.test_labels[:len(self.optimizee_labels)]]
+                    e["train_set"] = self.test_set[:len(self.optimizee_labels)]
+                    
+            self.cov_to_save.append(enkf.cov_mat)
             self.g += 1  # Update generation counter
             self._expand_trajectory(traj)
 
@@ -431,30 +549,30 @@ class EnsembleKalmanFilter(Optimizer):
         for wi in range(len(worst_individuals)):
             if pick_method == 'random':
                 # pick a random number for the best individuals add noise
-                rnd_indx = np.random.randint(len(best_individuals))
+                rnd_indx = self.random_state.randint(len(best_individuals))
                 ind = best_individuals[rnd_indx]
                 # add gaussian noise
-                noise = np.random.normal(loc=kwargs['loc'],
-                                         scale=kwargs['scale'],
-                                         size=len(ind))
+                noise = self.random_state.normal(loc=kwargs['loc'],
+                                                 scale=kwargs['scale'],
+                                                 size=len(ind))
                 worst_individuals[wi] = ind + noise
                 model_output[wi] = sorted_model_output[rnd_indx]
             elif pick_method == 'best_first':
                 for bidx, bi in enumerate(best_individuals):
                     pp = kwargs['pick_probability']
-                    rnd_pp = np.random.rand()
+                    rnd_pp = self.random_state.rand()
                     if pp >= rnd_pp:
                         # add gaussian noise
-                        noise = np.random.normal(loc=kwargs['loc'],
-                                                 scale=kwargs['scale'],
-                                                 size=len(bi))
+                        noise = self.random_state.normal(loc=kwargs['loc'],
+                                                         scale=kwargs['scale'],
+                                                         size=len(bi))
                         worst_individuals[wi] = bi + noise
                         model_output[wi] = sorted_model_output[bidx]
                         break
             else:
                 sampled = self._sample(best_individuals, pick_method)
                 worst_individuals = sampled
-                rnd_int = np.random.randint(
+                rnd_int = self.random_state.randint(
                     0, len(best_individuals), size=len(best_individuals))
                 model_output[len(sorted_individuals) -
                              len(worst_individuals):] = sorted_model_output[rnd_int]
@@ -566,4 +684,8 @@ class EnsembleKalmanFilter(Optimizer):
                 self.best_individual))
         np.savez_compressed(os.path.join(traj.parameters.path, 'weights.npz'),
                             weights=self.weights_to_save)
+        np.savez_compressed(os.path.join(traj.parameters.path, 'fitness_individual.npz'),
+                            fitness=self.fitness_all)
+        np.savez_compressed(os.path.join(traj.parameters.path, 'covariance_matrices.npz'),
+                            covmat=self.cov_to_save)
         logger.info("-- End of (successful) EnKF optimization --")
