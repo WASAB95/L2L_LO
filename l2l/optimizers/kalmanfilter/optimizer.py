@@ -480,8 +480,8 @@ class EnsembleKalmanFilter(Optimizer):
                 for e in self.eval_pop:
                     e["targets"] = [int(t) for t in self.test_labels[:len(self.optimizee_labels)]]
                     e["train_set"] = self.test_set[:len(self.optimizee_labels)]
-                    
-            self.cov_to_save.append(enkf.cov_mat)
+                self.cov_to_save.append(enkf.cov_mat)
+
             self.g += 1  # Update generation counter
             self._expand_trajectory(traj)
 
