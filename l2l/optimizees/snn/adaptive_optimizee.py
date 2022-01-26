@@ -629,6 +629,9 @@ class AdaptiveOptimizee(Optimizee):
         # Warm up simulation
         print("Starting simulation")
         # start simulation
+        self.clear_input()
+        nest.Simulate(self.warm_up_time)
+        print('Warm up done')
         fitnesses = []
         model_outs = []
         for idx, target in enumerate(targets):
@@ -661,6 +664,15 @@ class AdaptiveOptimizee(Optimizee):
             print("Simulation loop {} finished successfully".format(idx))
             print('Mean out e ', self.mean_ca_out_e)
             print('Mean e ', self.mean_ca_e)
+            print('Input spikes ', nest.GetStatus(self.input_spike_detector, keys='n_events')[0])
+            print('Bulk spikes', nest.GetStatus(self.bulks_detector_ex, keys='n_events')[0])
+            print('Out 0 spikes e', nest.GetStatus(self.out_detector_e, keys='n_events')[0])
+            print('Out 1 spikes e', nest.GetStatus(self.out_detector_e, keys='n_events')[1])
+            print('Out 2 spikes e', nest.GetStatus(self.out_detector_e, keys='n_events')[2])
+            print('Out 0 spikes i', nest.GetStatus(self.out_detector_i, keys='n_events')[0])
+            print('Out 1 spikes i', nest.GetStatus(self.out_detector_i, keys='n_events')[1])
+            print('Out 2 spikes i', nest.GetStatus(self.out_detector_i, keys='n_events')[2])
+            self.clear_spiking_events()
             softm = softmax([np.mean(self.mean_ca_out_e[j]) for j in
                              range(self.n_output_clusters)])
             argmax = np.argmax(softm)
@@ -679,7 +691,6 @@ class AdaptiveOptimizee(Optimizee):
             fitnesses, np.mean(fitnesses)))
         self.reset_all()
         return dict(fitness=np.mean(fitnesses), model_out=model_outs)
-        # return (np.mean(fitnesses),)
 
     def bounding_func(self, individual):
         def masked(x):
