@@ -112,7 +112,7 @@ class Experiment(object):
             "err_file": "stderr",
             "out_file": "stdout",
             "tasks_per_job": "1",
-            "exec": "python " + os.path.join(self.paths.simulation_path,
+            "exec": "python3 " + os.path.join(self.paths.simulation_path,
                                               "run_files/run_optimizee.py"),
             "ready_file": os.path.join(self.paths.root_dir_path,
                                        "ready_files/ready_w_"),
@@ -139,9 +139,10 @@ class Experiment(object):
             if kwargs.get('jube_parameter'):
                 if k not in kwargs.get('jube_parameter').keys():
                     self.traj.f_add_parameter_to_group("JUBE_params", k, v)
+                    all_jube_params[k] = v
             else:
                 self.traj.f_add_parameter_to_group("JUBE_params", k, v)
-            all_jube_params[k] = v
+                all_jube_params[k] = v
         print('JUBE parameters used: {}'.format(all_jube_params))
         return self.traj, all_jube_params
 

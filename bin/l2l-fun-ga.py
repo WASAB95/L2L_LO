@@ -3,7 +3,6 @@ import os
 import yaml
 import numpy as np
 
-from l2l.optimizees.functions import tools as function_tools
 from l2l.optimizees.functions.benchmarked_functions import BenchmarkedFunctions
 from l2l.optimizees.functions.optimizee import FunctionGeneratorOptimizee
 from l2l.optimizers.evolution import GeneticAlgorithmOptimizer, GeneticAlgorithmParameters
@@ -24,16 +23,16 @@ def main():
 
     optimizee_seed = 100
     random_state = np.random.RandomState(seed=optimizee_seed)
-    function_tools.plot(benchmark_function, random_state)
 
     ## Innerloop simulator
     optimizee = FunctionGeneratorOptimizee(traj, benchmark_function, seed=optimizee_seed)
 
     ## Outerloop optimizer initialization
-    parameters = GeneticAlgorithmParameters(seed=0, popsize=50, CXPB=0.5,
-                                            MUTPB=0.3, NGEN=100, indpb=0.02,
-                                            tournsize=15, matepar=0.5,
-                                            mutpar=1
+    parameters = GeneticAlgorithmParameters(seed=0, pop_size=50, cx_prob=0.5,
+                                            mut_prob=0.3, n_iteration=100,
+                                            ind_prob=0.02,
+                                            tourn_size=15, mate_par=0.5,
+                                            mut_par=1
                                             )
 
     optimizer = GeneticAlgorithmOptimizer(traj, optimizee_create_individual=optimizee.create_individual,

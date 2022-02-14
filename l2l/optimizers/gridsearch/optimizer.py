@@ -92,9 +92,9 @@ class GridSearchOptimizer(Optimizer):
                 curr_param_list = [x.ravel() for x in curr_param_list]
                 curr_param_list = np.stack(curr_param_list, axis=-1)
                 self.param_list[param_name] = curr_param_list
-            self.size = len(self.param_list[param_name])
 
         self.param_list = cartesian_product(self.param_list, tuple(sorted(optimizee_param_grid.keys())))
+        self.size = len(self.param_list[list(self.param_list.keys())[0]])
 
         # Adding the bounds information to the trajectory
         traj.f_add_parameter_group('grid_spec')
@@ -128,7 +128,7 @@ class GridSearchOptimizer(Optimizer):
         fitness_array = np.array([x[1] for x in fitnesses_results])
         optimizee_fitness_weights = np.reshape(np.array(self.optimizee_fitness_weights), (-1, 1))
 
-        weighted_fitness_array = np.matmul(fitness_array, optimizee_fitness_weights).ravel()
+        weighted_fitness_array = np.multiply(fitness_array, optimizee_fitness_weights).ravel()
         max_fitness_indiv_index = np.argmax(weighted_fitness_array)
 
         logger.info('Storing Results')
@@ -146,8 +146,9 @@ class GridSearchOptimizer(Optimizer):
         individual = traj.individual
         self.best_individual = {}
         for param_name, _, _ in self.optimizee_individual_dict_spec:
-            logger.info('  %s: %s', param_name, individual[param_name])
-            self.best_individual[param_name] = individual[param_name]
+            param_value = self.param_list[param_name][max_fitness_indiv_index]
+            logger.info('  %s: %s', param_name, param_value)
+            self.best_individual[param_name] = param_value
 
         self.best_fitness = fitness_array[max_fitness_indiv_index]
         logger.info('  with fitness: %s', fitness_array[max_fitness_indiv_index])

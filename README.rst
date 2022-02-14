@@ -23,7 +23,7 @@ If you are developing a new Optimizee or want to try out a new Optimizee with th
 L2L as a python package. See section `Installing the L2L Package`_ for details on how to install the package (this
 automatically installs all requirements).
 
-Documentation is available at `<https://igitugraz.github.io/L2L/>`_.
+Documentation is available at `<https://meta-optimization.github.io/L2L/>`_.
 
 
 Installing the L2L Package
@@ -31,7 +31,11 @@ Installing the L2L Package
 
 From the Top-Level directory of the directory, run the following command:
 
-    python3 setup.py install --user
+    python3 setup.py develop --user
+    
+or alternatively 
+    
+    pip3 install -e . 
 
 *The `--user` flag is to be used if you wish to install in the user path as opposed
 to the root path (e.g. when one does not have sudo access)*
@@ -64,3 +68,15 @@ And open the documentation with
    firefox _build/html/index.html
 
 All further (and extensive) documentation is in the html documentation!
+
+
+Invoking the tests
+******************
+
+To run the tests go to the folder `l2l/tests` and execute: 
+
+    python test_all.py
+    
+If the package nosetests is installed run on the top folder (L2L):
+
+     nosetests -v --with-coverage --cover-package=l2l/
