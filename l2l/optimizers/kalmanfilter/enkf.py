@@ -31,6 +31,7 @@ class EnsembleKalmanFilter:
         self.gamma = 0.
         self.gamma_s = 0
         self.dims = 0
+        self.cov_mat = {'Cpp': [], 'Cup': []}
 
     def fit(self, ensemble, ensemble_size, observations, model_output, gamma):
         """
@@ -89,13 +90,17 @@ class EnsembleKalmanFilter:
                 # put it into a list to loop over it
                 for d in idx:
                     # now get only the individuals output according to idx
+
                     g_tmp = model_output[:, :, d]
                     # Calculate the covariances
-                    Cpp = _cov_mat(g_tmp, g_tmp, ensemble_size)
-                    Cup = _cov_mat(self.ensemble, g_tmp, ensemble_size)
+                    self.Cpp = _cov_mat(g_tmp, g_tmp, ensemble_size)
+                    self.Cup = _cov_mat(self.ensemble, g_tmp, ensemble_size)
                     self.ensemble = _update_step(self.ensemble,
                                                  self.observations[d],
-                                                 g_tmp, self.gamma, Cpp, Cup)
+                                                 g_tmp, self.gamma,
+                                                 self.Cpp, self.Cup)
+                    self.cov_mat['Cpp'].append(self.Cpp.cpu().numpy())
+                    self.cov_mat['Cup'].append(self.Cup.cpu().numpy())
         return self
 
 
@@ -105,7 +110,8 @@ def _update_step(ensemble, observations, g, gamma, Cpp, Cup):
     Calculates the covariances and returns new ensembles
     """
     # return ensemble + (Cup @ np.linalg.lstsq(Cpp+gamma, (observations - g).T)[0]).T
-    return torch.mm(Cup, torch.lstsq((observations-g).t(), Cpp+gamma)[0]).t() + ensemble
+    # return torch.mm(Cup, torch.linalg.lstsq((observations-g).t(), Cpp+gamma)[0]).t() + ensemble
+    return torch.mm(Cup, torch.linalg.lstsq(Cpp + gamma, (observations-g).t()).solution).t() + ensemble
 
 
 def _cov_mat(x, y, ensemble_size):

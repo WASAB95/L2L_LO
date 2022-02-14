@@ -1,6 +1,8 @@
 import json
 import nest
 import numpy as np
+import os
+import pandas as pd
 
 from l2l.optimizees.snn import spike_generator, visualize
 
@@ -342,7 +344,7 @@ class ReservoirNetwork:
     def connect_greyvalue_input(self):
         """Connects input to bulk"""
         indegree = 8
-        weight = 100.
+        weight = 400.
         syn_dict_e = {
             "synapse_model": "random_synapse",
             #                                    size=weights_len_e)}
@@ -579,7 +581,8 @@ class ReservoirNetwork:
             nest.SetStatus(self.out_detector_i[i], "n_events", 0)
 
     def simulate(self, record_spiking_firingrate, train_set, targets, gen_idx,
-                 ind_idx, path='.', save_plot=False, with_data=True):
+                 ind_idx, path='.', save_plot=False, with_data=True,
+                 **kwargs):
         """
         Simulation method, returns the ex. mean firing rate as model output
 
@@ -592,9 +595,19 @@ class ReservoirNetwork:
         :param path: str, path route to save the plots
         :param save_plot: bool, if plots should be saved
         :param with_data: bool, if the external input should be set with the data
+        
+        :param kwargs: 
+            - replace_weights: bool, if the weights should be loaded from file
+            - weights: nd.array, loaded weights, should be one long vector
         """
         model_outs = []
+        if kwargs['replace_weights']:
+            weights = kwargs.get("weights")
+            assert weights.size > 0, "Weights seem to be empty"
+            self.replace_weights_(weights, path)
+            
         for idx, target in enumerate(targets):
+            print(target)
             # cooling time, empty simulation
             print("Cooling period")
             # Clear input
@@ -635,13 +648,43 @@ class ReservoirNetwork:
             # print("Mean e ", self.mean_ca_e)
             print(f"Mean out i {self.mean_ca_out_i}")
             model_outs.append(self.mean_ca_out_e.copy())
-            print('Input spikes ', len(nest.GetStatus(self.input_spike_detector, keys='events')[0]['times']))
-            print('Bulk spikes', len(nest.GetStatus(self.bulks_detector_ex, keys='events')[0]['times']))
-            print('Out spikes', len(nest.GetStatus(self.out_detector_e, keys='events')[0]['times']))
-            print('Out spikes', len(nest.GetStatus(self.out_detector_e, keys='events')[1]['times']))
+            print('Input spikes ', nest.GetStatus(self.input_spike_detector, keys='n_events')[0])
+            print('Bulk spikes', nest.GetStatus(self.bulks_detector_ex, keys='n_events')[0])
+            print('Out 0 spikes', nest.GetStatus(self.out_detector_e, keys='n_events')[0])
+            print('Out 1 spikes', nest.GetStatus(self.out_detector_e, keys='n_events')[1])
             # clear lists
             self.clear_records()
         return model_outs
+
+    @staticmethod
+    def load_network(path="."):
+        conns_eeo = pd.read_csv(os.path.join(path, "{}_connections.csv".format("eeo")))
+        conns_eio = pd.read_csv(os.path.join(path, "{}_connections.csv".format("eio")))
+        conns_ieo = pd.read_csv(os.path.join(path, "{}_connections.csv".format("ieo")))
+        conns_iio = pd.read_csv(os.path.join(path, "{}_connections.csv".format("iio")))
+        sources_eeo = conns_eeo["source"].values
+        sources_eio = conns_eio["source"].values
+        sources_ieo = conns_ieo["source"].values
+        sources_iio = conns_iio["source"].values
+        targets_eeo = conns_eeo["target"].values
+        targets_eio = conns_eio["target"].values
+        targets_ieo = conns_ieo["target"].values
+        targets_iio = conns_iio["target"].values
+        s = np.hstack((sources_eeo, sources_eio, sources_ieo, sources_iio))
+        t = np.hstack((targets_eeo, targets_eio, targets_ieo, targets_iio))
+        return s, t
+
+    def replace_weights_(self, weights, path="."):
+        sources, targets = self.load_network(path)
+        print(f"Shape sources {sources.shape}, targets {targets.shape} weights {weights.shape}")
+        syn_spec = {
+            "weight": weights,
+            "synapse_model": "static_synapse",
+            "delay": [1.0] * len(weights),
+        }
+        nest.Connect(
+            pre=sources, post=targets, syn_spec=syn_spec, conn_spec="one_to_one"
+        )
 
 
 if __name__ == '__main__':
@@ -663,16 +706,24 @@ if __name__ == '__main__':
         config = json.load(jsonfile)
     rng = np.random.default_rng(config['seed'])
     # create the dataset
-    dataset, labels = _create_example_dataset()
+    dataset, labels = _create_example_dataset(target_label=['0'])
     # Reservoir init
     reservoir = ReservoirNetwork()
     reservoir.create_network()
     reservoir.connect_network()
+    print(f'Labels: {labels[:1]}')
+    # load weights
+    fp = '/home/alper/Projects/L2L/results/'
+    # all_weights = np.load(os.path.join(fp, 'weights.npz')).get('weights')
+    # weights = all_weights[390][20]
+    # kwargs = {'weights': weights, 'replace_weights': True}
+    kwargs = {'weights': [], 'replace_weights': False}
     model_outs = reservoir.simulate(record_spiking_firingrate=True,
                                     train_set=dataset[:1],
                                     targets=labels[:1],
                                     gen_idx=0,
                                     ind_idx=0,
-                                    path='.',
+                                    path=fp,
                                     save_plot=False,
-                                    with_data=True)
+                                    with_data=True,
+                                    **kwargs)

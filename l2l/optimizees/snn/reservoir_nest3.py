@@ -27,9 +27,6 @@ class Reservoir:
         self.dt = self.config["dt"]
         self.neuron_model = self.config["neuron_model"]
         seed = np.uint32(self.config["seed"])
-        self.random_state = np.random.RandomState(seed=seed)
-        nest.SetKernelStatus({"rng_seed": seed})
-        np.random.seed(seed)
 
         # Number of neurons per layer
         self.n_input_neurons = self.config["n_input"]
@@ -105,7 +102,7 @@ class Reservoir:
         d = {}
         for p in perms:
             source, target = self._get_net_structure(p)
-            # TODO Check if this is correct
+            length_conns = 0
             if not isinstance(source, list):
                 source = [source]
             if not isinstance(target, list):
@@ -113,11 +110,14 @@ class Reservoir:
             conns = []
             for s in source:
                 for t in target:
-                    conns.append(nest.GetConnections(source=s, target=t))
+                    synapse_collection = nest.GetConnections(source=s, target=t)
+                    conns.append(synapse_collection)
+                    assert len(synapse_collection.target) == len(synapse_collection.source)
+                    length_conns = len(synapse_collection.source)
             if os.path.isfile(os.path.join(path, f"{p}_connections.csv")):
                 os.remove(os.path.join(path, f"{p}_connections.csv"))
             self.save_connections(conns, path=path, typ=p)
-            d[p] = len(conns)
+            d[p] = length_conns
         return d["eeo"], d["eio"], d["ieo"], d["iio"]
 
     def prepare_network(self):
@@ -160,9 +160,10 @@ class Reservoir:
     def reset_kernel(self):
         nest.ResetKernel()
         nest.set_verbosity("M_ERROR")
-        nest.SetKernelStatus(
-            {"resolution": self.dt, "local_num_threads": 8, "overwrite_files": True}
-        )
+        nest.local_num_threads = int(self.config['threads'])
+        nest.resolution = self.dt
+        nest.rng_seed = int(self.config["seed"])
+        nest.overwrite_files = True
 
     def create_nodes(self):
         self.nodes_in = nest.Create(self.neuron_model, self.n_input_neurons)
@@ -416,25 +417,26 @@ class Reservoir:
         conn_dict_e = {
             "rule": "fixed_indegree",
             # 0.3 * self.number_out_exc_neurons
-            "indegree": int(self.n_bulk_ex_neurons),
+            "indegree": int(self.n_bulk_ex_neurons/(self.n_neurons_out_e/4)),
             "allow_multapses": False,
             "allow_autapses": False,
         }
         conn_dict_i = {
             "rule": "fixed_indegree",
             # 0.2 * self.number_out_exc_neurons
-            "indegree": int(self.n_bulk_in_neurons),
+            "indegree": int(self.n_bulk_in_neurons/(self.n_neurons_out_e/4)),
             "allow_multapses": False,
             "allow_autapses": False,
         }
+        std = 30.0
 
         syn_dict_e = {
             "synapse_model": "random_synapse",
-            "weight": nest.random.normal(self.psc_e, 10.0),
+            "weight": nest.random.normal(self.psc_e, std),
         }
         syn_dict_i = {
             "synapse_model": "random_synapse_i",
-            "weight": nest.random.normal(self.psc_i, 10.0),
+            "weight": nest.random.normal(self.psc_i, std),
         }
         for j in range(self.n_output_clusters):
             nest.Connect(
@@ -471,17 +473,18 @@ class Reservoir:
 
     def connect_external_input(self):
         nest.SetStatus(self.noise, {"rate": self.bg_rate})
+        weight = 5.5
         nest.Connect(
             self.noise,
             self.nodes_e,
             "all_to_all",
-            {"weight": self.psc_ext, "delay": 1.0},
+            {"weight": weight, "delay": 1.0},
         )
         nest.Connect(
             self.noise,
             self.nodes_i,
             "all_to_all",
-            {"weight": self.psc_ext, "delay": 1.0},
+            {"weight": weight, "delay": 1.0},
         )
 
         if self.input_type == "bellec":
@@ -777,7 +780,7 @@ class Reservoir:
                 path=path,
                 save=save_plot,
             )
-            sim_steps = np.arange(0, self.t_sim, self.record_interval)
+            sim_steps = np.arange(0, self.t_sim, int(self.record_interval))
             for j, step in enumerate(sim_steps):
                 # Do the simulation
                 nest.Simulate(self.record_interval)
@@ -798,6 +801,10 @@ class Reservoir:
             print("Simulation loop {} finished successfully".format(idx))
             print("Mean out e ", self.mean_ca_out_e)
             print("Mean e ", self.mean_ca_e)
+            print('Input spikes ', len(nest.GetStatus(self.input_spike_detector, keys='events')[0]['times']))
+            print('Bulk spikes', len(nest.GetStatus(self.bulks_detector_ex, keys='events')[0]['times']))
+            for n in range(self.n_output_clusters):
+                print('Out spikes', len(nest.GetStatus(self.out_detector_e, keys='events')[n]['times']))
             model_outs.append(self.mean_ca_out_e.copy())
             # clear lists
             self.clear_records()
