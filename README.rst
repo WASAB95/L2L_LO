@@ -17,7 +17,7 @@ NOTE: The L2L framework is currently in **BETA**
 
 Information
 ***********
-This branch is accompanying the submission `Exploring hyper-parameter spaces of neuroscience models on high performance computers with Learning to Learn <https://arxiv.org/abs/2202.13822>`_. It will only stay in a frozen shape to represent the use cases conducted in the paper.
+This branch is accompanying the submission `Exploring hyper-parameter spaces of neuroscience models on high performance computers with Learning to Learn <https://arxiv.org/abs/2202.13822>`_. It will stay in a frozen shape to represent the use cases conducted in the paper.
 
 
 Getting Started
