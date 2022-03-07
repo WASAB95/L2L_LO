@@ -26,7 +26,6 @@ class Reservoir:
         # Resolution, simulation steps in [ms]
         self.dt = self.config["dt"]
         self.neuron_model = self.config["neuron_model"]
-        seed = np.uint32(self.config["seed"])
 
         # Number of neurons per layer
         self.n_input_neurons = self.config["n_input"]
@@ -113,7 +112,7 @@ class Reservoir:
                     synapse_collection = nest.GetConnections(source=s, target=t)
                     conns.append(synapse_collection)
                     assert len(synapse_collection.target) == len(synapse_collection.source)
-                    length_conns = len(synapse_collection.source)
+                    length_conns += len(synapse_collection.source)
             if os.path.isfile(os.path.join(path, f"{p}_connections.csv")):
                 os.remove(os.path.join(path, f"{p}_connections.csv"))
             self.save_connections(conns, path=path, typ=p)
@@ -209,7 +208,6 @@ class Reservoir:
                 max_rate=10,
             )
             self.rates = rates
-            # FIXME changed to len(rates) from len(offsets)
             self.pixel_rate_generators = nest.Create("poisson_generator", len(rates))
 
     @staticmethod
@@ -246,22 +244,16 @@ class Reservoir:
             nest.Connect(self.nodes_out_i[j], self.out_detector_i[j])
 
     def connect_noise_bulk(self):
-        poisson_gen = nest.Create(
-            "poisson_generator",
-            1,
-            {"rate": 10000.0},
-        )
+        poisson_gen = nest.Create("poisson_generator", 1, {'rate': 10000.0}, )
         syn_dict = {"synapse_model": "static_synapse", "weight": 1}
         syn_dict_i = {"synapse_model": "static_synapse", "weight": 1}
-        nest.Connect(poisson_gen, self.nodes_e, "all_to_all", syn_spec=syn_dict)
-        nest.Connect(poisson_gen, self.nodes_i, "all_to_all", syn_spec=syn_dict_i)
+        nest.Connect(poisson_gen, self.nodes_e, "all_to_all",
+                     syn_spec=syn_dict)
+        nest.Connect(poisson_gen, self.nodes_i, "all_to_all",
+                     syn_spec=syn_dict_i)
 
     def connect_noise_out(self):
-        poisson_gen = nest.Create(
-            "poisson_generator",
-            1,
-            {"rate": 10000.0},
-        )
+        poisson_gen = nest.Create("poisson_generator", 1, {'rate': 10000.0}, )
         syn_dict = {"synapse_model": "static_synapse", "weight": 1}
         syn_dict_i = {"synapse_model": "static_synapse", "weight": 1}
         for j in range(self.n_output_clusters):
@@ -275,44 +267,29 @@ class Reservoir:
     def connect_greyvalue_input(self):
         """Connects input to bulk"""
         indegree = 8
+        weight = 400.
         syn_dict_e = {
             "synapse_model": "random_synapse",
-            #                                    size=weights_len_e)}
-            "weight": nest.random.normal(self.psc_e, 100.0),
+            "weight": nest.random.normal(self.psc_e, weight),
         }
         syn_dict_i = {
             "synapse_model": "random_synapse_i",
-            "weight": nest.random.normal(self.psc_i, 100.0),
+            "weight": nest.random.normal(self.psc_e, weight),
         }
         syn_dict_input = {
             "synapse_model": "random_synapse",
-            "weight": nest.random.normal(self.psc_e, 100.0),
+            "weight": nest.random.normal(self.psc_e, weight),
         }
-        nest.Connect(
-            self.pixel_rate_generators,
-            self.nodes_in,
-            "one_to_one",
-            syn_spec=syn_dict_input,
-        )
+        nest.Connect(self.pixel_rate_generators, self.nodes_in, "one_to_one",
+                     syn_spec=syn_dict_input)
         # connect input to bulk
-        conn_dict = {
-            "rule": "fixed_indegree",
-            "indegree": indegree,
-            "allow_autapses": False,
-            "allow_multapses": False,
-        }
-        nest.Connect(
-            self.nodes_in,
-            self.nodes_e,
-            conn_spec=conn_dict,  # all_to_all
-            syn_spec=syn_dict_e,
-        )
-        nest.Connect(
-            self.nodes_in,
-            self.nodes_i,
-            conn_spec=conn_dict,  # all_to_all
-            syn_spec=syn_dict_i,
-        )
+        conn_dict = {'rule': 'fixed_indegree', 'indegree': indegree,
+                     "allow_autapses": False, "allow_multapses": False
+                     }
+        nest.Connect(self.nodes_in, self.nodes_e, conn_spec=conn_dict,
+                     syn_spec=syn_dict_e)
+        nest.Connect(self.nodes_in, self.nodes_i, conn_spec=conn_dict,
+                     syn_spec=syn_dict_i)
 
     def connect_bellec_input(self):
         nest.Connect(self.pixel_rate_generators, self.nodes_in, "one_to_one")
@@ -384,33 +361,19 @@ class Reservoir:
 
     def connect_internal_out(self):
         # Connect out
-        conn_dict = {"rule": "fixed_indegree", "indegree": 2, "allow_multapses": False}
+        conn_dict = {'rule': 'fixed_indegree', 'indegree': 2, "allow_multapses": False}
         syn_dict = {"synapse_model": "random_synapse"}
-        conn_dict_i = {
-            "rule": "fixed_indegree",
-            "indegree": 2,
-            "allow_multapses": False,
-        }
+        conn_dict_i = {'rule': 'fixed_indegree', 'indegree': 2, "allow_multapses": False}
         syn_dict_i = {"synapse_model": "random_synapse_i"}
         for ii in range(self.n_output_clusters):
-            nest.Connect(
-                self.nodes_out_e[ii], self.nodes_out_e[ii], conn_dict, syn_spec=syn_dict
-            )
-            nest.Connect(
-                self.nodes_out_e[ii], self.nodes_out_i[ii], conn_dict, syn_spec=syn_dict
-            )
-            nest.Connect(
-                self.nodes_out_i[ii],
-                self.nodes_out_e[ii],
-                conn_dict_i,
-                syn_spec=syn_dict_i,
-            )
-            nest.Connect(
-                self.nodes_out_i[ii],
-                self.nodes_out_i[ii],
-                conn_dict_i,
-                syn_spec=syn_dict_i,
-            )
+            nest.Connect(self.nodes_out_e[ii], self.nodes_out_e[ii], conn_dict,
+                         syn_spec=syn_dict)
+            nest.Connect(self.nodes_out_e[ii], self.nodes_out_i[ii], conn_dict,
+                         syn_spec=syn_dict)
+            nest.Connect(self.nodes_out_i[ii], self.nodes_out_e[ii],
+                         conn_dict_i, syn_spec=syn_dict_i)
+            nest.Connect(self.nodes_out_i[ii], self.nodes_out_i[ii],
+                         conn_dict_i, syn_spec=syn_dict_i)
 
     def connect_bulk_to_out(self):
         # Bulk to out
@@ -597,8 +560,6 @@ class Reservoir:
                 self.mean_ca_out_e[ii].append(np.mean(ca_e))
                 ca_i = (nest.GetStatus(self.nodes_out_i[ii], "Ca"),)
                 self.mean_ca_out_i[ii].append(np.mean(ca_i))
-                # TODO ?
-                # self.mean_ca_out_e[ii].append(np.mean(ca_e+ca_i))
 
     def clear_records(self):
         self.mean_ca_i.clear()
@@ -721,6 +682,7 @@ class Reservoir:
             self.connect_noise_out()
             self.connect_bulk_to_out()
         #  self.connect_out_to_out()
+        # TODO: check replacing operations
         if replace_weights:
             weights = kwargs.get("weights")
             root_dir_path = csv_path
@@ -757,10 +719,9 @@ class Reservoir:
             )
         # Warm up simulation
         print("Starting simulation")
-        if gen_idx < 1:
-            print("Warm up")
-            nest.Simulate(self.warm_up_time)
-            print("Warm up done")
+        self.clear_input()
+        nest.Simulate(self.warm_up_time)
+        print('Warm up done')
         # start simulation
         model_outs = []
         for idx, target in enumerate(targets):
@@ -810,7 +771,7 @@ class Reservoir:
             self.clear_records()
         # write model_outs
         df = pd.DataFrame({"model_out": model_outs})
-        df.to_csv(os.path.join(path, f"{index}_model_out.csv"))
+        df.to_csv(os.path.join(path, f"{ind_idx}_model_out.csv"))
         return model_outs
 
     @staticmethod
@@ -1002,6 +963,7 @@ if __name__ == "__main__":
             targets=labels,
             gen_idx=generation_id,
             ind_idx=individual_id,
+            test=False,
         )
     elif args.test:
         index = args.index
