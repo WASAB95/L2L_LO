@@ -19,10 +19,20 @@ Information
 ***********
 This branch is accompanying the submission `Exploring hyper-parameter spaces of neuroscience models on high performance computers with Learning to Learn <https://arxiv.org/abs/2202.13822>`_. It will stay in a frozen shape to represent the use cases conducted in the paper.
 
+Additionally to the requirements to install and run L2L, some libraries, especially simulators, have to be set up to successfully execute the use cases presented in the paper:
+
+- NEST>=3.0
+- NetLogo v6.5
+- Arbor
+- OpenAiGym>=0.18.0
+- TVB
+- PyTorch>=1.7.0
+- JUBE>=2.2.0
+- SDICT
+
 
 Getting Started
 ***************
-
 
 If you are developing a new Optimizee or want to try out a new Optimizee with the Optimizers in the L2L package, install
 L2L as a python package. See section `Installing the L2L Package`_ for details on how to install the package (this
