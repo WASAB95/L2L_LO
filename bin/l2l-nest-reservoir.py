@@ -7,15 +7,6 @@ from l2l.optimizees.snn.adaptive_optimizee import AdaptiveOptimizee, \
 from l2l.optimizers.kalmanfilter import EnsembleKalmanFilter, \
     EnsembleKalmanFilterParameters
 
-def get_individuals(popsize, path, generation):
-    res = []
-    for i in range(popsize):
-        with open(f'{path}/trajectory_{i}_{generation}.bin', 'rb') as t:
-            indi = pickle.load(t)
-            res.append(indi.individual)
-    return res
-
-
 def run_experiment():
     experiment = Experiment(root_dir_path='../results')
     jube_params = {"exec": "srun -n 1 -c 8 --exclusive python"}
@@ -32,7 +23,7 @@ def run_experiment():
     pop_size = 98
     optimizer_parameters = EnsembleKalmanFilterParameters(gamma=0.5,
                                                           maxit=1,
-                                                          n_iteration=400,
+                                                          n_iteration=330,
                                                           pop_size=pop_size,
                                                           n_batches=10,
                                                           n_repeat_batch=1,
