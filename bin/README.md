@@ -14,7 +14,7 @@ The uses cases are as follows:
  Within the run scripts the results path should be adapted. A default path is given as `../results` which can be changed.
  
  To run on the cluster we put exemplary scripts into the folder `hpc_scripts`.
- The cluster should support `SLURM` directives. 
+ We assune the cluster supports `SLURM` directives. 
  There are two files according for every use case, the `run_*` and `set_*` scripts. 
  The `run_*` files invoke the run, while the `set_*` scripts load necessary modules on the HPC. 
  In the `run_*` files, account options have to be set. These may vary from cluster to cluster. We already put a few options which correspond to commands known on most of the super computers in Juelich.
