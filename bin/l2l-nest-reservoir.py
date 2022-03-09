@@ -17,7 +17,7 @@ def get_individuals(popsize, path, generation):
 
 
 def run_experiment():
-    experiment = Experiment(root_dir_path='/p/scratch/icei-hbp-2021-0003/l2l_alper/')
+    experiment = Experiment(root_dir_path='../results')
     jube_params = {"exec": "srun -n 1 -c 8 --exclusive python"}
     traj, all_params = experiment.prepare_experiment(jube_parameter=jube_params, name="L2L-SNN-ENKF_{}".format(datetime.now().strftime("%Y-%m-%d-%H_%M_%S")))
 
