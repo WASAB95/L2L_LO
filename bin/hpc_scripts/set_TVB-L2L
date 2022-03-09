@@ -1,0 +1,4 @@
+module load CUDA Python SciPy-Stack/2019a-Python-3.6.8 numba JUBE
+export PYTHONPATH=$PYTHONPATH:<setpathtoTVB>/tvb-hpc/tvb-root/scientific_library
+
+return
