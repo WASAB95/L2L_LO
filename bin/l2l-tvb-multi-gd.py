@@ -1,7 +1,6 @@
 import os
 import warnings
 import logging.config
-# import yaml
 
 import numpy as np
 from l2l.utils.environment import Environment

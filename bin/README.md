@@ -6,7 +6,7 @@ The uses cases are as follows:
  1. [`l2l-nest-reservoir.py`](l2l-nest-reservoir.py):  Reservoir computing and digit recognition with NEST
  1. [`l2l-arbor.py`](l2l-arbor.py)
  1. [`l2l-neuroevolution_ant_colony.py`](l2l-neuroevolution_ant_colony.py): Foraging behaviour with Netlogo and NEST or SpikingLab
- 1. [](): Fitting functional connectivity with TVB
+ 1. [`l2l-tvb-multi-gd.py`](l2l-tvb-multi-gd.py): Fitting functional connectivity with TVB
  1. [`l2l-neuroevolution_mc_nest.py`](l2l-neuroevolution_mc_nest.py): Solving the Mountain Car Task with OpenAI Gym and NEST
  1. [`l2l-nest-sp-simple.py`](l2l-nest-sp-simple.py): Optimizing structural plasticity in NEST, simple case 
  1. [`l2l-nest-sp-micro.py`](l2l-nest-sp-micro.py): Optimizing structural plasticity in NEST, microcircuit
