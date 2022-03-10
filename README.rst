@@ -21,11 +21,11 @@ This branch is accompanying the submission `Exploring hyper-parameter spaces of 
 
 Additionally to the requirements to install and run L2L, some libraries, especially simulators, have to be set up to successfully execute the use cases presented in the paper:
 
-- NEST>=3.0
-- NetLogo v6.5
-- Arbor
+- `NEST>=3.0 <https://nest-simulator.readthedocs.io/en/v3.0/>`_
+- `NetLogo v6.5 <https://ccl.northwestern.edu/netlogo/>`_
+- `Arbor <https://arbor-sim.org/>`_
+- `TVB <https://docs.thevirtualbrain.org/>`_
 - OpenAiGym>=0.18.0
-- TVB
 - PyTorch>=1.7.0
 - JUBE>=2.2.0
 - SDICT
