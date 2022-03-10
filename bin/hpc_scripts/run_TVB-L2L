@@ -9,4 +9,4 @@
 #SBATCH --partition=gpus
 #SBATCH --gres=gpu:0
 
-python bin/l2l-pse-multi-gd.py
+python bin/l2l-tvb-multi-gd.py
