@@ -886,7 +886,23 @@ class Reservoir:
 
 
 if __name__ == "__main__":
-
+    """
+    Script to test out different scenarios with the reservoir written in 
+    NESTv3.  
+    
+    For example to run a test execute:
+    python reservoir_nest3.py -t -p ../results -i 00 -g -rfr True
+    -t: test
+    -p: results folder, requires csv files with the network connections
+    -i: individual number 
+    -g: generation number
+    -rfr: record firing rate 
+    
+    To run an experiment similar to the optimizee execute:
+    1. python reservoir_nest3.py -c -p ../results -i 00 -g -rfr True
+    2. python reservoir_nest3.py -s -p ../results -i 00 -g -rfr True
+    
+    """
     def _create_example_dataset(mnist_path="./mnist784_dat/", target_label="0"):
         """
         Creates an example dataset for a given label.
