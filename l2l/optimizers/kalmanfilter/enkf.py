@@ -103,6 +103,20 @@ class EnsembleKalmanFilter:
                     self.cov_mat['Cup'].append(self.Cup.cpu().numpy())
         return self
 
+    def clear(self, maxit=1, online=False, n_batches=10):
+        self.Cpp = None
+        self.Cup = None
+        self.ensemble = None
+        self.observations = None
+
+        self.maxit = maxit
+        self.online = online
+        self.n_batches = n_batches
+        self.gamma = 0.
+        self.gamma_s = 0
+        self.dims = 0
+        self.cov_mat = {'Cpp': [], 'Cup': []}
+
 
 def _update_step(ensemble, observations, g, gamma, Cpp, Cup):
     """

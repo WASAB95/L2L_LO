@@ -80,9 +80,6 @@ class AdaptiveOptimizee(Optimizee):
         self.mean_ca_i = []
         self.mean_ca_out_e = [[] for _ in range(self.n_output_clusters)]
         self.mean_ca_out_i = [[] for _ in range(self.n_output_clusters)]
-        # Lists for labels
-        self.target_labels = []
-        self.random_ids = []
 
     def connect_network(self):
         self.prepare_network()
@@ -115,7 +112,6 @@ class AdaptiveOptimizee(Optimizee):
         for p in perms:
             source, target = self._get_net_structure(p)
             length_conns = 0
-            # TODO Check if this is correct
             if not isinstance(source, list):
                 source = [source]
             if not isinstance(target, list):
@@ -188,7 +184,7 @@ class AdaptiveOptimizee(Optimizee):
                 self.neuron_model, self.n_neurons_out_e))
             self.nodes_out_i.append(nest.Create(
                 self.neuron_model, self.n_neurons_out_i))
-        # TODO enable commented region
+        # TODO enable commented region for adaptive neurons
         # nest.SetStatus(
         #     self.nodes_e, {'a': self.params['a'], 'b': self.params['b']})
         # nest.SetStatus(
@@ -226,7 +222,6 @@ class AdaptiveOptimizee(Optimizee):
                 max_rate=10,
             )
             self.rates = rates
-            # FIXME changed to len(rates) from len(offsets)
             self.pixel_rate_generators = nest.Create("poisson_generator", len(rates))
 
     @staticmethod
