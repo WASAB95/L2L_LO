@@ -2,7 +2,7 @@ from collections import namedtuple
 from l2l.optimizees.optimizee import Optimizee
 from l2l.optimizers.kalmanfilter.enkf import EnsembleKalmanFilter
 from l2l.optimizers.kalmanfilter.data import fetch
-from l2l.optimizees.snn.reservoir import Reservoir
+from l2l.optimizees.snn.reservoir_nest3 import Reservoir
 from scipy.special import softmax
 
 import json
