@@ -8,7 +8,7 @@ from l2l.utils.environment import Environment
 from l2l.optimizers.multigradientdescent.optimizer import MultiGradientDescentOptimizer
 from l2l.optimizers.multigradientdescent.optimizer import MultiRMSPropParameters
 from l2l.paths import Paths
-from l2l.optimizees.pse_multi.optimizee import PSEOptimizee
+from l2l.optimizees.tvb_multi.optimizee import PSEOptimizee
 
 import l2l.utils.JUBE_runner as jube
 from l2l.utils.experiment import Experiment
