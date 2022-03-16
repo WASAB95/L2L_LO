@@ -10,8 +10,8 @@ def run_experiment():
 
     optimizee_parameters = EnKFOptimizeeParameters(
         record_spiking_firingrate=True,
-        save_plot=False, n_test_batch=10,
-        n_batch=3, replace_weights=False, path=experiment.root_dir_path)
+        save_plot=False, n_test_batch=10, ensemble_size=10,
+        n_batches=10, path=experiment.root_dir_path)
     # Optimizee params
     # Inner-loop simulator
     optimizee = EnKFOptimizee(traj, optimizee_parameters)
