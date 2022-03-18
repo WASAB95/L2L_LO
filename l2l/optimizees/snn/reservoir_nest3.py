@@ -8,6 +8,7 @@ import os
 import pandas as pd
 import pathlib
 import pickle
+import time
 
 from collections import OrderedDict
 from itertools import permutations, product
@@ -404,18 +405,10 @@ class Reservoir:
             "weight": nest.random.normal(self.psc_i, std),
         }
         for j in range(self.n_output_clusters):
-            nest.Connect(
-                self.nodes_e, self.nodes_out_e[j], conn_dict_e, syn_spec=syn_dict_e
-            )
-            nest.Connect(
-                self.nodes_e, self.nodes_out_i[j], conn_dict_e, syn_spec=syn_dict_e
-            )
-            nest.Connect(
-                self.nodes_i, self.nodes_out_e[j], conn_dict_i, syn_spec=syn_dict_i
-            )
-            nest.Connect(
-                self.nodes_i, self.nodes_out_i[j], conn_dict_i, syn_spec=syn_dict_i
-            )
+            nest.Connect(self.nodes_e, self.nodes_out_e[j], conn_dict_e, syn_spec=syn_dict_e)
+            nest.Connect(self.nodes_e, self.nodes_out_i[j], conn_dict_e, syn_spec=syn_dict_e)
+            nest.Connect(self.nodes_i, self.nodes_out_e[j], conn_dict_i, syn_spec=syn_dict_i)
+            nest.Connect(self.nodes_i, self.nodes_out_i[j], conn_dict_i, syn_spec=syn_dict_i)
 
     def connect_out_to_out(self):
         """
