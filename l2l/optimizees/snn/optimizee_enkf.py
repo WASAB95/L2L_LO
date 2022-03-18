@@ -3,7 +3,9 @@ from l2l.optimizees.optimizee import Optimizee
 from l2l.optimizers.kalmanfilter.enkf import EnsembleKalmanFilter
 from l2l.optimizers.kalmanfilter.data import fetch
 from l2l.optimizees.snn.reservoir_nest3 import Reservoir
+from l2l.optimizers.crossentropy.distribution import Gaussian
 from scipy.special import softmax
+from scipy.stats import rv_histogram
 
 import json
 import numpy as np
@@ -15,13 +17,11 @@ import time
 
 # TODO:
 '''
-- add sampling
-- make test static
 - weights are saved as `{individual_index}_{simulation_index}_weights_{type}.csv`
 - the key in the dictionary is `{individual_index}_{simulation_index}_weights_{type}`
-- how to return the fitness (best, mean)? 
-- change dataset loading to new version
 - if the reservoir conn structure changes the conn dictionary needs to be adapted
+- save weights and cov mat
+- save train set and train labels
 '''
 
 EnKFOptimizeeParameters = namedtuple(
@@ -161,8 +161,8 @@ class EnKFOptimizee(Optimizee):
         :param n_slice: int, how many slices are going to be taken.
             E.g. if target labels are `[0,1,2]` and `n_slice` 4 then the
             function will return `3 * 4 = 12` labels and corresponding data
-            back. The slice starts at `gen_id`. Used in combination with
-            `shuffle=True`. Default is 4.
+            back. The slice starts at `gen_id * n_slice`. Used in combination
+            with `shuffle=True`. Default is 4.
         :param shuffle: bool, if `True` shuffles the data and labels.
             Default is False.
         """
@@ -204,6 +204,106 @@ class EnKFOptimizee(Optimizee):
         """
         rnd = np.random.randint(low=0, high=len(labels), size=size)
         return [int(labels[i]) for i in rnd], rnd
+
+    def sample_from_individuals(self, individuals, fitness, model_output,
+                                best_n=0.25, worst_n=0.25,
+                                pick_method='random',
+                                **kwargs):
+        """
+        Samples from the best `n` individuals via different methods.
+
+        :param individuals: array_like
+            Input data, the individuals
+        :param fitness: array_like
+            Fitness array
+        :param best_n: float
+            Percentage of best individuals to sample from
+        :param model_output, array like, model outputs of the best indiviudals
+            will be used to replace the model outputs of the worst individuals
+            in the same manner as the sampling
+        :param worst_n:
+            Percentage of worst individuals to replaced by sampled individuals
+        :param pick_method: str
+            Either picks the best individual randomly 'random' or it picks the
+            iterates through the best individuals and picks with a certain
+            probability `best_first` the first best individual
+            `best_first`. In the latter case must be used with the key word
+            argument `pick_probability`.  `gaussian` creates a multivariate
+            normal using the mean and covariance of the best individuals to
+            replace the worst individuals.
+            Default: 'random'
+        :param kwargs:
+            'pick_probability': float
+                Probability of picking the first best individual. Must be used
+                when `pick_method` is set to `pick_probability`.
+            'loc': float, mean of the gaussian normal, can be specified if
+               `pick_method` is `random` or `pick_probability`
+               Default: 0.
+            'scale': float, std scale of the gaussian normal, can be specified if
+                `pick_method` is `random` or `pick_probability`
+                 Default: 0.1
+        :return: array_like
+            New array of sampled individuals.
+        """
+        # best fitness should be here ~ 1 (which means correct choice)
+        # sort them from best to worst via the index of fitness
+        # get indices
+        indices = np.argsort(fitness)[::-1]
+        sorted_individuals = np.array(individuals)[indices]
+        # get best n individuals from the front
+        best_individuals = sorted_individuals[:int(len(individuals) * best_n)]
+        # get worst n individuals from the back
+        worst_individuals = sorted_individuals[
+            len(individuals) - int(len(individuals) * worst_n):]
+        # sort model outputs
+        sorted_model_output = model_output[indices]
+        for wi in range(len(worst_individuals)):
+            if pick_method == 'random':
+                # pick a random number for the best individuals add noise
+                rnd_indx = self.rng.integers(len(best_individuals))
+                ind = best_individuals[rnd_indx]
+                # add gaussian noise
+                noise = self.rng.normal(loc=kwargs['loc'],
+                                                 scale=kwargs['scale'],
+                                                 size=len(ind))
+                worst_individuals[wi] = ind + noise
+                model_output[wi] = sorted_model_output[rnd_indx]
+            elif pick_method == 'best_first':
+                for bidx, bi in enumerate(best_individuals):
+                    pp = kwargs['pick_probability']
+                    rnd_pp = self.rng.random()
+                    if pp >= rnd_pp:
+                        # add gaussian noise
+                        noise = self.rng.normal(loc=kwargs['loc'],
+                                                scale=kwargs['scale'],
+                                                size=len(bi))
+                        worst_individuals[wi] = bi + noise
+                        model_output[wi] = sorted_model_output[bidx]
+                        break
+            else:
+                sampled = self._sample(best_individuals, pick_method)
+                worst_individuals = sampled
+                rnd_int = self.rng.integers(
+                    0, len(best_individuals), size=len(best_individuals))
+                model_output[len(sorted_individuals) -
+                             len(worst_individuals):] = sorted_model_output[rnd_int]
+                break
+        sorted_individuals[len(sorted_individuals) -
+                           len(worst_individuals):] = worst_individuals
+        return sorted_individuals, model_output
+
+    def _sample(self, individuals, method='gaussian'):
+        if method == 'gaussian':
+            dist = Gaussian()
+            dist.init_random_state(self.rng.bit_generator)
+            dist.fit(individuals)
+            sampled = dist.sample(len(individuals))
+        elif method == 'rv_histogram':
+            sampled = [rv_histogram(h) for h in individuals]
+        else:
+            raise KeyError('Sampling method {} not known'.format(method))
+        sampled = np.asarray(sampled)
+        return sampled
 
     def create_batchfile(self, csv_path):
         with open(os.path.join(csv_path, self.batchfile), 'w') as f:
@@ -293,8 +393,8 @@ class EnKFOptimizee(Optimizee):
 
     def bounding_func(self, individual):
         self.gamma = np.clip(individual['gamma'], 0.01, 1.)
-        self.ensemble_size = np.clip(individual['ensemble_size'], 10, 32).astype(int)
-        self.repetitions = np.clip(individual['repetitions'], 1, 5).astype(int)
+        self.ensemble_size = np.clip(individual['ensemble_size'], 10, 50).astype(int)
+        self.repetitions = np.clip(individual['repetitions'], 1, 1).astype(int)
         individual = {'gamma': self.gamma,
                       'ensemble_size': self.ensemble_size,
                       'repetitions': self.repetitions,
@@ -342,8 +442,6 @@ class EnKFOptimizee(Optimizee):
         else:
             raise AttributeError('Train Labels are not set, please check.')
 
-        # TODO split into train and test
-        # save train set and train labels
         # all individuals/simulations are getting the same batch of data
         self.save_data_set(file_path=self.parameters.path,
                            trainset=trainset,
@@ -352,94 +450,110 @@ class EnKFOptimizee(Optimizee):
 
         # Prepare for simulation
         n_output_clusters = self.config['n_output_clusters']
-        enkf = EnsembleKalmanFilter(maxit=1,
-                                    online=True,
-                                    n_batches=len(self.optimizee_labels))
-        # Show i times the batch of images
-        for i in range(self.repetitions):
-            for j in range(self.ensemble_size):
-                mo = os.path.join(self.parameters.path,
-                                  f'{self.ind_idx}_{j}_model_out.csv')
-                if os.path.isfile(mo):
-                    os.remove(mo)
-            # save weights before simulation
-            # self.save_weights(csv_path=self.parameters.path,
-            #                   simulation_idx=j)
+        fitnesses = None
+
+        # Training
+        if self.gen_idx % 10 != 0:
+            enkf = EnsembleKalmanFilter(maxit=1,
+                                        online=True,
+                                        n_batches=len(self.optimizee_labels))
+            # Show i times the batch of images
+            for i in range(self.repetitions):
+                for j in range(self.ensemble_size):
+                    model_out = os.path.join(self.parameters.path,
+                                             f'{self.ind_idx}_{j}_model_out.csv')
+                    if os.path.isfile(model_out):
+                        os.remove(model_out)
+                # save weights before simulation
+                # self.save_weights(csv_path=self.parameters.path,
+                #                   simulation_idx=j)
+                self.execute_subprocess(csv_path=self.parameters.path,
+                                        index=self.ind_idx, simulation='--simulate')
+                while True:
+                    if all([os.path.isfile(os.path.join(self.parameters.path,
+                                                        f'{self.ind_idx}_{idx}_model_out.csv'))
+                            for idx in range(self.ensemble_size)]):
+                        break
+                    else:
+                        time.sleep(3)
+
+                # obtain the individual model outputs
+                model_out = [np.load(os.path.join(
+                    self.parameters.path, f'{self.ind_idx}_{idx}_model_out.csv'),
+                    allow_pickle=True)
+                    for idx in range(self.ensemble_size)]
+                # get fitness
+                fitnesses = self.get_fitness(
+                    n_output_clusters=n_output_clusters, model_outs=model_out)
+
+                # EnKF fit
+                # concatenate weights
+                weights = [np.concatenate(
+                    (self.dict_weights[f'{self.ind_idx}_{i}_weights_eeo'],
+                     self.dict_weights[f'{self.ind_idx}_{i}_weights_eio'],
+                     self.dict_weights[f'{self.ind_idx}_{i}_weights_ieo'],
+                     self.dict_weights[f'{self.ind_idx}_{i}_weights_iio']))
+                    for i in range(self.ensemble_size)]
+                ens = np.array(weights)
+                if self.parameters.scale_weights:
+                    ens = ens / np.abs(ens).max()
+                if self.parameters.sample:
+                    ens, model_outs = self.sample_from_individuals(
+                        individuals=ens,
+                        model_output=model_out,
+                        fitness=fitnesses,
+                        sampling_method=self.parameters.sampling_method,
+                        pick_method=self.parameters.pick_method,
+                        best_n=self.parameters.best_n,
+                        worst_n=self.parameters.worst_n,
+                        # / (self.g % traj.n_repeat_batch /2 + 1),
+                        **self.parameters.kwargs)
+                enkf.fit(ensemble=np.array(ens),
+                         model_output=np.array(model_out),
+                         ensemble_size=self.ensemble_size,
+                         observations=np.array(self.optimizee_labels),
+                         gamma=self.gamma)
+                results = enkf.ensemble.cpu().numpy()
+                # apply scaling
+                if self.parameters.scale_weights:
+                    results = results * np.abs(weights).max()
+                # save new results into weights dictionary
+                self.restructure_weight_dict(w=results,
+                                             csv_path=self.parameters.path,
+                                             simulation_index=i)
+            # save new weights after optimization is done
+            for i in range(self.ensemble_size):
+                self.save_weights(csv_path=self.parameters.path, simulation_idx=i)
+
+        # Testing
+        elif self.gen_idx % 10 == 0 and self.gen_idx > 0:
+            if self.test_labels:
+                testset = self.test_set[:len(self.optimizee_labels)]
+                testlabels = [int(t) for t in self.test_labels[:len(self.optimizee_labels)]]
+                # save test set and test labels
+                self.save_data_set(file_path=self.parameters.path,
+                                   trainset=testset,
+                                   targets=testlabels,
+                                   generation=self.gen_idx)
+
             self.execute_subprocess(csv_path=self.parameters.path,
                                     index=self.ind_idx, simulation='--simulate')
             while True:
                 if all([os.path.isfile(os.path.join(self.parameters.path,
-                                                    f'{self.ind_idx}_{idx}_model_out.csv'))
+                                                    f'{idx}_model_out.csv'))
                         for idx in range(self.ensemble_size)]):
                     break
                 else:
                     time.sleep(3)
-
-            model_outs = [np.load(os.path.join(
-                self.parameters.path, f'{self.ind_idx}_{idx}_model_out.csv'),
-                allow_pickle=True)
+            model_out = [pd.read_csv(os.path.join(
+                self.parameters.path, f'{idx}_model_out.csv'))['model_out'].values
                           for idx in range(self.ensemble_size)]
-            # obtain the individual model outputs and apply softmax on them
-            model_outs, argmax = self.apply_softmax(model_outs=model_outs,
-                                                    n_output_clusters=n_output_clusters)
-            # EnKF fit
-            # concatenate weights
-            weights = [np.concatenate(
-                (self.dict_weights[f'{self.ind_idx}_{i}_weights_eeo'],
-                 self.dict_weights[f'{self.ind_idx}_{i}_weights_eio'],
-                 self.dict_weights[f'{self.ind_idx}_{i}_weights_ieo'],
-                 self.dict_weights[f'{self.ind_idx}_{i}_weights_iio']))
-                for i in range(self.ensemble_size)]
-            ens = np.array(weights)
-            if self.parameters.scale_weights:
-                ens = ens / np.abs(ens).max()
-            enkf.fit(ensemble=np.array(ens),
-                     model_output=np.array(model_outs),
-                     ensemble_size=self.ensemble_size,
-                     observations=np.array(self.optimizee_labels),
-                     gamma=self.gamma)
-            results = enkf.ensemble.cpu().numpy()
-            if self.parameters.scale_weights:
-                results = results * np.abs(weights).max()
-            self.restructure_weight_dict(w=results,
-                                         csv_path=self.parameters.path,
-                                         simulation_index=i)
-        # save new weights after optimization is done
-        for i in range(self.ensemble_size):
-            self.save_weights(csv_path=self.parameters.path, simulation_idx=i)
-
-        # Final testing to obtain the fitness
-        # TODO adapt to new loading scheme
-        # TODO do test only in certain generations
-        if self.test_labels and self.gen_idx == 10:
-            self.optimizee_labels, self.random_ids = self.randomize_labels(
-                self.test_labels, size=self.parameters.n_test_batch)
-            self.test_set = [self.test_set[r] for r in self.random_ids]
-            # save test set and test labels
-            self.save_data_set(file_path=self.parameters.path,
-                               trainset=self.train_set,
-                               targets=self.optimizee_labels,
-                               generation=self.gen_idx)
-
-        indices = []
-        for j in range(self.ensemble_size):
-            index = f'{self.ind_idx}{j}'
-            self.execute_subprocess(csv_path=self.parameters.path,
-                                    index=index, simulation='--simulate')
-            indices.append(index)
-        while True:
-            if all([os.path.isfile(os.path.join(self.parameters.path,
-                                                f'{idx}_model_out.csv'))
-                    for idx in indices]):
-                break
-            else:
-                time.sleep(3)
-        model_outs = [pd.read_csv(os.path.join(
-            self.parameters.path, f'{idx}_model_out.csv'))['model_out'].values
-                      for idx in indices]
-        fitnesses = self.get_fitness(n_output_clusters=n_output_clusters,
-                                     model_outs=model_outs)
+            fitnesses = self.get_fitness(n_output_clusters=n_output_clusters,
+                                         model_outs=model_out)
         self.dict_weights.clear()
+        if not fitnesses:
+            raise AttributeError(f'No fitness obtained - '
+                                 f'Got instead : {fitnesses}')
         return np.mean(fitnesses),
 
     def save_weights(self, csv_path, simulation_idx):
@@ -516,7 +630,7 @@ class EnKFOptimizee(Optimizee):
         for i, target in enumerate(self.optimizee_labels):
             label = np.eye(n_output_clusters)[target]
             pred = np.eye(n_output_clusters)[i]
-            # MSE of 1 is worst 0 is best, that's why 1 - mean
+            # MSE of 1 is worst 0 is best, that's why 1 - fitness for L2L
             fitness = 1 - self._calculate_fitness(label, pred, "MSE")
             fitnesses.append(fitness)
             print('Fitness {} for target {}, softmax {}, argmax {}'.format(
