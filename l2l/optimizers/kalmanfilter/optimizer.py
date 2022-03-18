@@ -259,8 +259,8 @@ class EnsembleKalmanFilter(Optimizer):
         :param n_slice: int, how many slices are going to be taken.
             E.g. if target labels are `[0,1,2]` and `n_slice` 4 then the
             function will return `3 * 4 = 12` labels and corresponding data
-            back. The slice starts at `gen_id`. Used in combination with
-            `shuffle=True`. Default is 4.
+            back. The slice starts at `gen_id * n_slice`. Used in combination
+            with `shuffle=True`. Default is 4.
         :param shuffle: bool, if `True` shuffles the data and labels.
             Default is False.
         """
