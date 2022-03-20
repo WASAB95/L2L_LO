@@ -1,6 +1,5 @@
 import argparse
 import json
-import mpi4py
 from mpi4py import MPI
 import nest
 import numpy as np
@@ -8,7 +7,6 @@ import os
 import pandas as pd
 import pathlib
 import pickle
-import time
 
 from collections import OrderedDict
 from itertools import permutations, product
@@ -658,10 +656,16 @@ class Reservoir:
         :param targets: list of ints, targets corresponding to `train_set`
         :param gen_idx: int, generation number
         :param ind_idx: int, individual number
+        :param sim_idx: int, simulation index
+            Default is 0
         :param save_plot: bool, if plots should be saved
+            Default is False
         :param path: str, csv file to load the weights and connections
         :param replace_weights, bool, if weights should be loaded, in
             combination with `kwargs` see keyword `weights`
+            Default is False
+        :param test: bool, Enable if testing the run
+            Default is False
         :param kwargs: dict, Dictionary with the weights
                - weights: numpy array of weights, coming from a previous
                simulation to continue the simulation
