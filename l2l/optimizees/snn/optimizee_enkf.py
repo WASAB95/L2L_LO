@@ -14,6 +14,7 @@ import pathlib
 import pandas as pd
 import subprocess
 import time
+import datetime
 
 # TODO:
 '''
@@ -138,6 +139,13 @@ class EnKFOptimizee(Optimizee):
         self.gamma = 0.
         self.ensemble_size = self.parameters.ensemble_size
         self.repetitions = 0
+
+        # results to save pro certain generation for further analysis
+        self.results_to_save = {
+            "weights": [],
+            "cov_mat": [],
+            "fitness": []
+        }
 
     def get_mnist_data(self, mnist_path='./mnist784_dat/'):
         self.train_set, self.train_labels, self.test_set, self.test_labels = \
@@ -524,6 +532,18 @@ class EnKFOptimizee(Optimizee):
             # save new weights after optimization is done
             for i in range(self.ensemble_size):
                 self.save_weights(csv_path=self.parameters.path, simulation_idx=i)
+
+            # store results before test
+            if self.gen_idx % 9 == 0 and self.gen_idx > 0:
+                self.results_to_save['fitness'].append(fitnesses)
+                self.results_to_save['weights'].append(enkf.cov_mat)
+                self.results_to_save['weights'].append(results)
+                dir_name = "results_"+datetime.datetime.now().strftime("%d-%m-%Y-%H-%M")
+                results_path = os.path.join(self.parameters.path, dir_name)
+                if not os.path.exists(results_path):
+                    os.mkdir(results_path)
+                np.savez_compressed(results_path,
+                                    f'{self.gen_idx}_{self.ind_idx}_results.npz')
 
         # Testing
         elif self.gen_idx % 10 == 0 and self.gen_idx > 0:
