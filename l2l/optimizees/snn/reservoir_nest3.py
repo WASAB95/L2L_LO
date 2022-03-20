@@ -1,5 +1,7 @@
 import argparse
 import json
+import mpi4py
+from mpi4py import MPI
 import nest
 import numpy as np
 import os
@@ -647,6 +649,7 @@ class Reservoir:
         targets,
         gen_idx,
         ind_idx,
+        sim_idx=0,
         save_plot=False,
         path=".",
         replace_weights=False,
@@ -770,21 +773,21 @@ class Reservoir:
             # clear lists
             self.clear_records()
         # write model_outs
-        df = pd.DataFrame({"model_out": model_outs})
-        df.to_csv(os.path.join(path, f"{ind_idx}_model_out.csv"))
+        np.save(os.path.join(path, f"{ind_idx}_{sim_idx}_model_out.npy"), model_outs)
         return model_outs
 
     @staticmethod
-    def replace_weights(source, target, path=".", index="00", typ="e", test=False):
+    def replace_weights(source, target, path=".", ind_idx="0", sim_idx="0",
+                        typ="e", test=False):
         # Read the connections, i.e. sources and targets
         conns = pd.read_csv(
-            os.path.join(path, f"{index}_weights_{typ}.csv"), index_col=0
-        )
+            os.path.join(path, f"{ind_idx}_{sim_idx}_weights_{typ}.csv"),
+            index_col=0)
         # extract the weights and connections
         # sources = conns['source'].values
         # targets = conns['target'].values
         # weights = conns['weights'].values
-        print(f"now replacing connection weights `{typ}` of simulation {index}")
+        print(f"now replacing connection weights `{typ}` of individual {ind_idx} simulation {sim_idx}")
         if not isinstance(source, list):
             source = [source]
         if not isinstance(target, list):
@@ -913,8 +916,6 @@ if __name__ == "__main__":
         train_set, train_labels, test_set, test_labels = fetch(
             path=mnist_path, labels=target_label
         )
-        df = pd.DataFrame({"train_set": train_set, "targets": train_labels})
-        df.to_csv(os.path.join(mnist_path, "dataset.csv"))
         return train_set, train_labels
 
     def _save_weights(
@@ -923,6 +924,7 @@ if __name__ == "__main__":
         mu: float = 100.0,
         sigma: float = 50.0,
         ind_idx: int = 0,
+        sim_idx: int = 0,
     ):
         """
         Creates random distributed weights for the network and saves them into
@@ -934,7 +936,7 @@ if __name__ == "__main__":
                     os.path.join(csv_path, "{}_connections.csv".format(typ)),
                     index_col=0,
                 )
-                key = f"{ind_idx}{i}_weights_{typ}"
+                key = f"{ind_idx}_{sim_idx}_weights_{typ}"
                 size = len(conns)
                 conns["weights"] = np.random.normal(mu, sigma, size)
                 conns.to_csv(os.path.join(path, f"{key}.csv"))
@@ -963,10 +965,10 @@ if __name__ == "__main__":
     elif args.simulate:
         csv_path = args.path
         # overall index, something like 12 for generation-individual
-        index = args.index
-        # there shouldn't be individuals > 9, so the first index
-        # should be only one digit
-        individual_id = int(index[0])
+        comm = MPI.COMM_WORLD
+        # index of the actual simulation is obtained from the mpi rank
+        simulation_index = comm.Get_rank()
+        individual_id = int(args.index)
         generation_id = int(args.generation)
         data = np.load(os.path.join(csv_path, f"{generation_id}_dataset.npy"),
                        allow_pickle=True).item()
@@ -979,6 +981,7 @@ if __name__ == "__main__":
             targets=labels,
             gen_idx=generation_id,
             ind_idx=individual_id,
+            sim_indx=simulation_index,
             test=False,
         )
     elif args.test:
