@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from l2l.utils.experiment import Experiment
 from l2l.optimizees.snn.optimizee_enkf import EnKFOptimizee, \
     EnKFOptimizeeParameters
@@ -8,13 +10,16 @@ def run_experiment():
     experiment = Experiment(root_dir_path='../results')
     traj, _ = experiment.prepare_experiment(jube_parameter={}, name="L2L-ENKF")
 
+    # Inner-loop
+    # Optimizee params
     optimizee_parameters = EnKFOptimizeeParameters(
+        path=experiment.root_dir_path,
+        stop_criterion=1e-2,
         record_spiking_firingrate=True,
         save_plot=False,
         n_test_batch=10,
         ensemble_size=10,
         n_batches=10,
-        path=experiment.root_dir_path,
         scale_weights=True,
         sample=True,
         pick_method='random',
@@ -22,7 +27,7 @@ def run_experiment():
         best_n=0.1,
         data_loader_method='separated',
         shuffle=True,
-        stop_criterion=1e-2,
+        n_slice=4,
         kwargs={'loc': 0., 'scale': 0.1},
     )
 
@@ -33,14 +38,14 @@ def run_experiment():
     # Outer-loop optimizer initialization
     optimizer_seed = 1234
     pop_size = 2
-    optimizer_parameters = GeneticAlgorithmParameters(seed=0, popsize=4,
-                                                      CXPB=0.7,
-                                                      MUTPB=0.5,
-                                                      NGEN=3,
-                                                      indpb=0.02,
-                                                      tournsize=15,
-                                                      matepar=0.5,
-                                                      mutpar=1
+    optimizer_parameters = GeneticAlgorithmParameters(seed=0, pop_size=5,
+                                                      cx_prob=0.7,
+                                                      mut_prob=0.5,
+                                                      n_iteration=3,
+                                                      ind_prob=0.02,
+                                                      tourn_size=2,
+                                                      mate_par=0.5,
+                                                      mut_par=1
                                                       )
 
     optimizer = GeneticAlgorithmOptimizer(traj,

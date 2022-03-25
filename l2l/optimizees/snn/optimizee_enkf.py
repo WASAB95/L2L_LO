@@ -100,9 +100,9 @@ class EnKFOptimizee(Optimizee):
     def __init__(self, traj, parameters):
         super().__init__(traj)
         self.parameters = parameters
-        fp = pathlib.Path(__file__).parent.absolute()
-        config_path = os.path.join(str(fp), 'config.json')
-        print(config_path)
+        self.fp = pathlib.Path(__file__).parent.absolute()      
+        config_path = os.path.join(str(self.fp), 'config.json')
+        print(f"Config path: {config_path}")
         with open(config_path) as jsonfile:
             self.config = json.load(jsonfile)
         # Lists for labels
@@ -110,6 +110,7 @@ class EnKFOptimizee(Optimizee):
         self.random_ids = []
         self.gen_idx = traj.individual.generation
         self.ind_idx = traj.individual.ind_idx
+        self.recording_firingrate = self.parameters.record_spiking_firingrate
 
         # MNIST DATA HANDLING
         self.target_label = ['0', '1', '2']
@@ -137,7 +138,7 @@ class EnKFOptimizee(Optimizee):
 
         # Hyper-parameters
         self.gamma = 0.
-        self.ensemble_size = self.parameters.ensemble_size
+        self.ensemble_size = int(self.parameters.ensemble_size)
         self.repetitions = 0
 
         # results to save pro certain generation for further analysis
@@ -315,15 +316,18 @@ class EnKFOptimizee(Optimizee):
 
     def create_batchfile(self, csv_path):
         with open(os.path.join(csv_path, self.batchfile), 'w') as f:
+            reservoir_path = os.path.join(str(self.fp), 'reservoir_nest3.py')
+            print(f"Reservoir path: {reservoir_path}")
             batch = "#!/bin/bash -x \n" \
                     "#SBATCH --nodes=1 \n" \
                     "#SBATCH --ntasks-per-node=128\n" \
                     "#SBATCH --cpus-per-task=8 \n" \
                     "#SBATCH --time=01:00:00 \n" \
                     "#SBATCH --partition=batch \n" \
-                    "#SBATCH --account=slns \n " \
-                    "export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK} \n " \
-                    "srun -n $1 -c $2 python reservoir_nest3.py $3 $4 $5 $6"
+                    "#SBATCH --account=haf \n" \
+                    "#SBATCH --gres=gpu:0 \n" \
+                    "export OMP_NUM_THREADS=${SLURM_CPUS_PER_TASK} \n" \
+                    f"srun -n $1 -c $2 python {reservoir_path} $3 $4 $5 $6"
             f.write(batch)
 
     def create_ensembles(self):
@@ -341,7 +345,7 @@ class EnKFOptimizee(Optimizee):
                 break
             else:
                 time.sleep(3)
-
+        print('Creating the weights')
         mu = self.config['mu']
         sigma = self.config['sigma']
         size_eeo, size_eio, size_ieo, size_iio = self.get_connections_sizes(self.parameters.path)
@@ -369,19 +373,23 @@ class EnKFOptimizee(Optimizee):
 
     def execute_subprocess(self, csv_path, index='00', simulation='--create'):
         threads = int(self.config['threads'])
+        batchfile_path = os.path.join(self.parameters.path, self.batchfile)
+        print(f"Batch file path: {batchfile_path}")
         if simulation == '--create' or simulation == '-c':
+            print('Create phase')
             sub = subprocess.run(
-                ['sbatch', f'{self.batchfile}',
+                ['sbatch', f'{batchfile_path}',
                  f'{1}', f'{threads}',
                  f'{simulation}',
                  f'--path={csv_path}',
                  f'--generation={self.gen_idx}',
-                 f'--record_spiking_firingrate={False}',
+                 f'--record_spiking_firingrate={self.recording_firingrate}',
                  ],
                 check=True)
         else:
+            print('Simulate phase')
             sub = subprocess.run([
-                'sbatch', f'{self.batchfile}',
+                'sbatch', f'{batchfile_path}',
                 f'{self.ensemble_size}', f'{threads}',
                 f'{simulation}',
                 f'--index={index}',
@@ -393,9 +401,10 @@ class EnKFOptimizee(Optimizee):
         sub.check_returncode()
 
     def create_individual(self):
-        return {'gamma': np.abs(self.rng.normal(0., 0.5, size=1)),
-                'ensemble_size': self.rng.integers(10, 32, size=1),
-                'repetitions': self.rng.integers(1, 2, size=1),
+        return {'gamma': np.abs(self.rng.normal(0., 0.5)),
+                # 'ensemble_size': self.rng.integers(10, 32),
+                'ensemble_size': int(self.ensemble_size),
+                'repetitions': self.rng.integers(1, 2),
                 # TODO sampling values
                 }
 
@@ -414,8 +423,8 @@ class EnKFOptimizee(Optimizee):
         self.gen_idx = traj.individual.generation
         self.ind_idx = traj.individual.ind_idx
         self.gamma = traj.individual.gamma
-        self.repetitions = traj.individual.repetitions
-        self.ensemble_size = traj.individual.ensemble_size
+        self.repetitions = int(traj.individual.repetitions)
+        self.ensemble_size = int(traj.individual.ensemble_size)
         if self.gen_idx == 0:
             # create the batch file if not existent
             if not os.path.isfile(
@@ -438,7 +447,7 @@ class EnKFOptimizee(Optimizee):
             elif self.data_loader_method == 'separated':
                 self.optimizee_data, self.optimizee_labels = self.get_separated_data(
                     self.train_labels, self.train_set, self.target_label,
-                    shuffle=self.parameters.parameters.shuffle,
+                    shuffle=self.parameters.shuffle,
                     n_slice=self.parameters.n_slice)
                 trainset = self.optimizee_data
                 if not self.parameters.shuffle:
@@ -461,7 +470,7 @@ class EnKFOptimizee(Optimizee):
         fitnesses = None
 
         # Training
-        if self.gen_idx % 10 != 0:
+        if self.gen_idx % 10 != 0 or self.gen_idx == 0:
             enkf = EnsembleKalmanFilter(maxit=1,
                                         online=True,
                                         n_batches=len(self.optimizee_labels))
