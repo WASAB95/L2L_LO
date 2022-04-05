@@ -27,9 +27,9 @@ Additionally to the requirements to install and run L2L, some libraries, especia
 - `TVB <https://docs.thevirtualbrain.org/>`_
 - OpenAiGym>=0.18.0
 - PyTorch>=1.7.0
-- JUBE>=2.2.0
 - SDICT
 
+The scripts to run the examples in the manuscript are located in the `bin <https://github.com/Meta-optimization/L2L/tree/frontiers_submission/bin>`_ folder. Please read the instructions in the `README <https://github.com/Meta-optimization/L2L/blob/frontiers_submission/bin/README.md>`_ file as well.
 
 Getting Started
 ***************
