@@ -307,3 +307,5 @@ class EvolutionStrategiesOptimizer(Optimizer):
 
         # ------------ Finished all runs and print result --------------- #
         logger.info("-- End of (successful) ES optimization --")
+        logger.info(f'best individual {best_last_indiv_dict}')
+        logger.info('final_fitness: %.4f', self.best_fitness_in_run)
