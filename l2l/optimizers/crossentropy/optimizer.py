@@ -202,6 +202,7 @@ class CrossEntropyOptimizer(Optimizer):
         logger.info('  Best Fitness: %.4f', self.best_fitness_in_run)
         logger.info('  Average Fitness: %.4f', np.mean(sorted_fitness))
         logger.debug('  Calculated gamma: %.4f', self.gamma)
+        logger.info(f'best individual {self.best_individual}')
 
         #**************************************************************************************************************
         # Storing Generation Parameters / Results in the trajectory
