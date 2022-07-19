@@ -40,6 +40,11 @@ AdamParameters = namedtuple(
     'AdamParameters',
     ['learning_rate', 'exploration_step_size', 'n_random_steps', 'first_order_decay', 'second_order_decay', 'n_iteration',
      'stop_criterion', 'seed'])
+
+AdaMaxParameters = namedtuple(
+    'AdamParameters',
+    ['learning_rate', 'exploration_step_size', 'n_random_steps', 'first_order_decay', 'second_order_decay', 'n_iteration',
+     'stop_criterion', 'seed'])
 AdamParameters.__doc__ = """
 :param learning_rate: The rate of learning per step of gradient descent
 :param exploration_step_size: The standard deviation of random steps used for finite difference gradient
@@ -134,6 +139,8 @@ class GradientDescentOptimizer(Optimizer):
             self.init_stochastic_gd(parameters, traj)
         elif type(parameters) is AdamParameters:
             self.init_adam(parameters, traj)
+        elif type(parameters) is AdaMaxParameters:
+            self.init_ada_max(parameters, traj)
         elif type(parameters) is RMSPropParameters:
             self.init_rmsprop(parameters, traj)
         else:
@@ -317,6 +324,19 @@ class GradientDescentOptimizer(Optimizer):
         self.fo_moment = np.zeros(len(self.current_individual))  # first order moment
         self.so_moment = np.zeros(len(self.current_individual))  # second order moment
 
+    def init_ada_max(self, parameters, traj):
+
+        self.update_function = self.ada_max_update
+
+        traj.f_add_parameter('first_order_decay', parameters.first_order_decay,
+                             comment='Decay of the first order momentum')
+        traj.f_add_parameter('second_order_decay', parameters.second_order_decay,
+                             comment='Decay of the second order momentum')
+
+        self.fo_moment = np.zeros(len(self.current_individual))  # first order moment
+        self.so_moment = np.zeros(len(self.current_individual))  # second order moment
+
+
     def init_stochastic_gd(self, parameters, traj):
         """
         Stochastic Gradient Descent specific initializiation.
@@ -383,6 +403,14 @@ class GradientDescentOptimizer(Optimizer):
 
         self.current_individual += traj.learning_rate * fo_moment_corrected / \
                                     (np.sqrt(so_moment_corrected) + self.delta)
+
+    def ada_max_update(self, traj, gradient):
+        self.fo_moment = (traj.first_order_decay * self.fo_moment +
+                          (1 - traj.first_order_decay) * gradient)
+
+        self.so_moment = np.maximum(traj.second_order_decay * self.so_moment, abs(gradient))
+
+        self.current_individual += traj.learning_rate * self.fo_moment / self.so_moment
 
     def stochastic_gd_update(self, traj, gradient):
         """

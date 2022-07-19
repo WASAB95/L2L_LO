@@ -8,6 +8,7 @@ from l2l.optimizers.gradientdescent.optimizer import GradientDescentOptimizer
 # from l2l.optimizers.gradientdescent.optimizer import ClassicGDParameters
 # from l2l.optimizers.gradientdescent.optimizer import StochasticGDParameters
 # from l2l.optimizers.gradientdescent.optimizer import AdamParameters
+from l2l.optimizers.gradientdescent.optimizer import AdaMaxParameters
 from l2l.optimizers.gradientdescent.optimizer import RMSPropParameters
 
 
@@ -36,6 +37,8 @@ def main():
     #                                  stop_criterion=np.Inf)
     # parameters = AdamParameters(learning_rate=0.01, exploration_step_size=0.01, n_random_steps=5, first_order_decay=0.8,
     #                             second_order_decay=0.8, n_iteration=100, stop_criterion=np.Inf)
+    # parameters = AdaMaxParameters(learning_rate=0.02, exploration_step_size=0.01, n_random_steps=5, first_order_decay=0.9,
+    #                             second_order_decay=0.999, n_iteration=100, stop_criterion=np.Inf, seed=123)
     # parameters = StochasticGDParameters(learning_rate=0.01, stochastic_deviation=1, stochastic_decay=0.99,
     #                                     exploration_step_size=0.01, n_random_steps=5, n_iteration=100,
     #                                     stop_criterion=np.Inf)
