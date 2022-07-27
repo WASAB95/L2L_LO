@@ -325,6 +325,13 @@ class GradientDescentOptimizer(Optimizer):
         self.so_moment = np.zeros(len(self.current_individual))  # second order moment
 
     def init_ada_max(self, parameters, traj):
+        """
+        ADAMAX specific initializiation.
+
+        :param ~l2l.utils.trajectory.Trajectory traj: The  trajectory on which the parameters should get stored.
+
+        :return:
+        """
 
         self.update_function = self.ada_max_update
 
@@ -405,6 +412,17 @@ class GradientDescentOptimizer(Optimizer):
                                     (np.sqrt(so_moment_corrected) + self.delta)
 
     def ada_max_update(self, traj, gradient):
+        """
+        Updates the current individual using the ADAMAX algorithm.
+
+        :param ~l2l.utils.trajectory.Trajectory traj: The  trajectory which contains the parameters
+            required by the update algorithm (in this case: first and second order decay)
+
+        :param ~numpy.ndarray gradient: The gradient of the fitness curve, evaluated at the current individual
+
+        :return:
+        """
+
         self.fo_moment = (traj.first_order_decay * self.fo_moment +
                           (1 - traj.first_order_decay) * gradient)
 
