@@ -43,8 +43,8 @@ class SignalGeneratorOptimizee(Optimizee):
         y_real = [self.generate_signal(self.am[i], self.ph[i], self.fr) for i in range(self.range)]
         y_mean = np.mean(y_real, axis=0)
 
-        return self.mean_square_erorr_list(y_pred, y_real)
-        # return self.mean_square_erorr(y_pred=y_pred, y_true=y_mean)
+        # return self.mean_square_erorr_list(y_pred, y_real)
+        return self.mean_square_erorr(y_pred=y_pred, y_true=y_mean)
 
     def generate_signal(self, amplitude, phase, freq, time=np.arange(0, 1, 0.01)):
         return amplitude * np.sin(2 * np.pi * freq * time + phase)

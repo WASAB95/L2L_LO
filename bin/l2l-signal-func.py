@@ -32,7 +32,7 @@ def main():
                                                           debug=False)
 
     ## Innerloop simulator
-    optimizee_parameters = SignalGeneratorOptimizeeParameters(frequency=5, amplitude=[1, 3], phase=[-1, 1], seed=2, range=1000)
+    optimizee_parameters = SignalGeneratorOptimizeeParameters(frequency=5, amplitude=[1, 3], phase=[-1, 1], seed=200, range=1000)
     optimizee = SignalGeneratorOptimizee(traj, optimizee_parameters)
 
 
@@ -62,7 +62,7 @@ def main():
 
     parameters = RMSPropParameters(learning_rate=0.015, exploration_step_size=0.02,
                                    n_random_steps=5, momentum_decay=0.9,
-                                   n_iteration=100, stop_criterion=np.Inf, seed=1)
+                                   n_iteration=100, stop_criterion=np.Inf, seed=11)
 
     # parameters = AdaMaxParameters(learning_rate=0.02, exploration_step_size=0.02, n_random_steps=2, first_order_decay=0.9,
     #                             second_order_decay=0.999, n_iteration=15, stop_criterion=np.Inf,seed=123)
