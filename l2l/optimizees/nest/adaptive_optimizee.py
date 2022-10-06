@@ -1,7 +1,7 @@
 from collections import OrderedDict, namedtuple
 from itertools import permutations, product
 from l2l.optimizees.optimizee import Optimizee
-from l2l.optimizees.snn import spike_generator, visualize
+from l2l.optimizees.nest import spike_generator, visualize
 from scipy.special import softmax
 from l2l.optimizers.kalmanfilter.data import fetch
 

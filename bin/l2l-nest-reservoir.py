@@ -2,7 +2,7 @@ import pickle
 
 from datetime import datetime
 from l2l.utils.experiment import Experiment
-from l2l.optimizees.snn.adaptive_optimizee import AdaptiveOptimizee, \
+from l2l.optimizees.nest.adaptive_optimizee import AdaptiveOptimizee, \
     AdaptiveOptimizeeParameters
 from l2l.optimizers.kalmanfilter import EnsembleKalmanFilter, \
     EnsembleKalmanFilterParameters
