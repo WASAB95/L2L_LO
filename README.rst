@@ -25,7 +25,7 @@ Additionally to the requirements to install and run L2L, some libraries, especia
 - `NetLogo v6.5 <https://ccl.northwestern.edu/netlogo/>`_
 - `Arbor <https://arbor-sim.org/>`_
 - `TVB <https://docs.thevirtualbrain.org/>`_
-- OpenAiGym>=0.18.0
+- OpenAiGym==0.18.0
 - PyTorch>=1.7.0
 - SDICT
 
