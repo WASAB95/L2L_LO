@@ -1,7 +1,7 @@
 from datetime import datetime
 from l2l.utils.experiment import Experiment
 
-from l2l.optimizees.neuroevolution import NeuroEvolutionOptimizeeMC, NeuroEvolutionOptimizeeMCParameters
+from l2l.optimizees.mc_gym.optimizee_mc import NeuroEvolutionOptimizeeMC, NeuroEvolutionOptimizeeMCParameters
 from l2l.optimizers.evolution import GeneticAlgorithmParameters, GeneticAlgorithmOptimizer
 
 import os
@@ -9,7 +9,7 @@ import os
 def run_experiment():
     experiment = Experiment(
         root_dir_path='../results')
-    jube_params = { "exec": "python3.9"} 
+    jube_params = { "exec": "python3"}
     traj, _ = experiment.prepare_experiment(
          jube_parameter=jube_params, name="NeuroEvo_ES_{}".format(datetime.now().strftime("%Y-%m-%d-%H_%M_%S")))
         
@@ -22,7 +22,7 @@ def run_experiment():
     optimizer_parameters = GeneticAlgorithmParameters(seed=1580211, pop_size=32,
                                                       cx_prob=0.7,
                                                       mut_prob=0.7,
-                                                      n_iteration=6000,
+                                                      n_iteration=3,
                                                       ind_prob=0.45,
                                                       tourn_size=4,
                                                       mate_par=0.5,
