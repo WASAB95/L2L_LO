@@ -57,13 +57,13 @@ class SignalGeneratorOptimizee(Optimizee):
         print(loss)
         return (1 - loss,)
 
-    def mean_square_erorr_list(self, y_pred, y_true):
-        print(y_true)
-        print(y_pred)
-        squared_error = np.subtract(y_true, y_pred) ** 2
-        loss = [np.sum(i) / len(y_pred) for i in squared_error]
-        print('los is: ')
-        print(loss)
-        avg_loss = np.mean(loss)
-        print('avg los is: ' + str(avg_loss))
-        return (1 - avg_loss,)
+    # def mean_square_erorr_list(self, y_pred, y_true):
+    #     print(y_true)
+    #     print(y_pred)
+    #     squared_error = np.subtract(y_true, y_pred) ** 2
+    #     loss = [np.sum(i) / len(y_pred) for i in squared_error]
+    #     print('los is: ')
+    #     print(loss)
+    #     avg_loss = np.mean(loss)
+    #     print('avg los is: ' + str(avg_loss))
+    #     return (1 - avg_loss,)

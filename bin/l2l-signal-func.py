@@ -2,11 +2,13 @@
 This file is a typical example of a script used to run a L2L experiment. Read the comments in the file for more
 explanations
 """
-import numpy as np
+import shutil
 
+import numpy as np
 
 from l2l.optimizees.signal_generator_function.signal_generator import SignalGeneratorOptimizee
 from l2l.optimizees.signal_generator_function.signal_generator import SignalGeneratorOptimizeeParameters
+from l2l.optimizers.NN.optimizer import NNOptimizerParameters, NNOptimizer
 from l2l.optimizers.crossentropy import CrossEntropyParameters, CrossEntropyOptimizer
 from l2l.optimizers.crossentropy.distribution import Gaussian, NoisyGaussian
 from l2l.optimizers.evolution import GeneticAlgorithmParameters, GeneticAlgorithmOptimizer
@@ -32,9 +34,9 @@ def main():
                                                           debug=False)
 
     ## Innerloop simulator
-    optimizee_parameters = SignalGeneratorOptimizeeParameters(frequency=5, amplitude=[1, 3], phase=[-1, 1], seed=200, range=1000)
+    optimizee_parameters = SignalGeneratorOptimizeeParameters(frequency=5, amplitude=[1, 3], phase=[-1, 1], seed=2433,
+                                                              range=1000)
     optimizee = SignalGeneratorOptimizee(traj, optimizee_parameters)
-
 
     # Cross Entropy ##
     # parameters = CrossEntropyParameters(pop_size=15, rho=0.15, smoothing=0.1, temp_decay=0, n_iteration=30,
@@ -44,8 +46,7 @@ def main():
     #                                   optimizee_fitness_weights=(1.0,),
     #                                   parameters=parameters, optimizee_bounding_func=optimizee.bounding_func)
 
-
-#---------------------    ### Gird Search ## ------------------------------#
+    # ---------------------    ### Gird Search ## ------------------------------#
 
     # Outerloop optimizer initialization
     # n_grid_divs_per_axis = 30
@@ -56,13 +57,11 @@ def main():
     #                                 optimizee_fitness_weights=(1.0,),
     #                                 parameters=parameters)
 
-
-
     # ------------------------------------- GradientDescent ------------------------------------#
 
-    parameters = RMSPropParameters(learning_rate=0.015, exploration_step_size=0.02,
-                                   n_random_steps=5, momentum_decay=0.9,
-                                   n_iteration=100, stop_criterion=np.Inf, seed=11)
+    # parameters = RMSPropParameters(learning_rate=0.0015, exploration_step_size=0.02,
+    #                                n_random_steps=4, momentum_decay=0.9,
+    #                                n_iteration=30, stop_criterion=np.Inf, seed=64)
 
     # parameters = AdaMaxParameters(learning_rate=0.02, exploration_step_size=0.02, n_random_steps=2, first_order_decay=0.9,
     #                             second_order_decay=0.999, n_iteration=15, stop_criterion=np.Inf,seed=123)
@@ -70,12 +69,19 @@ def main():
     # parameters = AdamParameters(learning_rate=0.02, exploration_step_size=0.02, n_random_steps=2, first_order_decay=0.9,
     #                             second_order_decay=0.999, n_iteration=15, stop_criterion=np.Inf,seed=123)
 
-    optimizer = GradientDescentOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
-                                         optimizee_fitness_weights=(1.0,),
-                                         parameters=parameters)
+    # optimizer = GradientDescentOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
+    #                                      optimizee_fitness_weights=(1.0,),
+    #                                      parameters=parameters)
 
+    parameters = NNOptimizerParameters(learning_rate=0.0015, pop_size=5, neurons=5, batch_size=256, epochs=100,
+                                       input_path='../data/*.csv', schema=['fitness', 'amp', 'phase'], header=None,
+                                       n_iteration=20, stop_criterion=np.Inf, seed=6514)
+    #
+    optimizer = NNOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
+                            optimizee_fitness_weights=(1.0,),
+                            parameters=parameters)
 
-#------------------------------------- Evolution ------------------------------------#
+    # ------------------------------------- Evolution ------------------------------------#
     # optimizer_seed = 1234
     # parameters = EvolutionStrategiesParameters(
     #     learning_rate=0.5,
@@ -93,8 +99,7 @@ def main():
     #     optimizee_fitness_weights=1.0,
     #     parameters=parameters)
 
-
-#------------------------------------- Genetic ------------------------------------#
+    # ------------------------------------- Genetic ------------------------------------#
 
     # parameters = GeneticAlgorithmParameters(seed=0, pop_size=10, cx_prob=0.5,
     #                                         mut_prob=0.3, n_iteration=20,
@@ -107,9 +112,6 @@ def main():
     #                                       optimizee_fitness_weights=(1),
     #                                       parameters=parameters)
 
-
-
-
     experiment.run_experiment(optimizee=optimizee,
                               optimizer=optimizer,
                               optimizer_parameters=parameters)
@@ -117,4 +119,10 @@ def main():
 
 
 if __name__ == '__main__':
+    # random = np.random.RandomState(123)
+    # for i in range(20):
+    #     shutil.rmtree('../results')
+    #     seed1 = random.randint(1, 1000)
+    #     seed2 = random.randint(1, 1000)
+    #     main(seed1, seed2)
     main()

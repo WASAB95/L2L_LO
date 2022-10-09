@@ -217,10 +217,12 @@ class GradientDescentOptimizer(Optimizer):
         logger.info("  Current fitness is %.2f", self.current_fitness)
         logger.info('  Best Fitness: %.4f', sorted_fitness[0])
         logger.info("  Best individual is %s", sorted_population[0])
+
         # f = open(f"../log_{traj.par.seed}.csv", "a")
-        # f.write(str(sorted_fitness[0]) + ",")
-        # f.write(str(sorted_population[0][0]) + ",")
-        # f.write(str(sorted_population[0][1]) + "\n")
+        # for i in range(len(sorted_fitness)):
+        #     f.write(str(sorted_fitness[i]) + ",")
+        #     f.write(str(sorted_population[i][0]) + ",")
+        #     f.write(str(sorted_population[i][1]) + "\n")
         # f.close()
 
         generation_result_dict = {
