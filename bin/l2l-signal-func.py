@@ -74,7 +74,7 @@ def main():
     #                                      parameters=parameters)
 
     parameters = NNOptimizerParameters(learning_rate=0.0015, pop_size=5, neurons=5, batch_size=256, epochs=100,
-                                       input_path='../data/*.csv', schema=['fitness', 'amp', 'phase'], header=None,
+                                       input_path='../data_combined.csv', schema=[], header=0,
                                        n_iteration=20, stop_criterion=np.Inf, seed=6514)
     #
     optimizer = NNOptimizer(traj, optimizee_create_individual=optimizee.create_individual,

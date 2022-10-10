@@ -121,7 +121,7 @@ class NNOptimizer(Optimizer):
 
         self.best_dict[self.g] = sorted_fitness[0]
 
-        if self.g > 0 and abs(self.best_dict[self.g - 1] - self.best_dict[self.g]) <= 0.0001:
+        if 0 < self.g < self.parameters.n_iteration and abs(self.best_dict[self.g - 1] - self.best_dict[self.g]) <= 0.0001:
             if self.trained:
                 self.g = traj.n_iteration - 1
             else:
@@ -135,8 +135,7 @@ class NNOptimizer(Optimizer):
                 self.train_network(train_lodaer, epochs=1, pre=False)
                 self.trained = True
                 self.training_generations.append(self.g)
-                # train_lodaer = self.get_train_loader(feature, targets, batchsize=self.parameters.batch_size)
-                # self.train_network_2(train_lodaer, epochs=self.parameters.epochs, pre=False)
+                self.collected_data.clear()
         else:
             self.trained = False
 
@@ -174,26 +173,6 @@ class NNOptimizer(Optimizer):
         """
         pass
 
-    # def train_network(self, train_loader, epochs):
-    #     for epoch in range(epochs):
-    #         for idx, (data, targets) in enumerate(train_loader):
-    #             data = data.view(data.size(0), 1).to(self.device)
-    #             amp_target, ph_target = torch.split(targets, 1, 1)
-    #             amp_target = amp_target.to(self.device)
-    #             ph_target = ph_target.to(self.device)
-    #
-    #             self.optimizer.zero_grad()
-    #
-    #             output = self.model(data)
-    #             amp_out = output['amp']
-    #             phase_out = output['phase']
-    #
-    #             loss = self.loss_function(amp_out, amp_target)
-    #             loss = loss + self.loss_function(phase_out, ph_target)
-    #
-    #             loss.backward()
-    #             self.optimizer.step()
-
     def train_network(self, train_loader, epochs, pre=True):
         for epoch in range(epochs):
             for idx, (data, targets) in enumerate(train_loader):
@@ -227,15 +206,12 @@ class NNOptimizer(Optimizer):
             df = pd.concat((pd.read_csv(f, header=header) for f in all_files)).reset_index(
                 drop=True)
             self.targets = df.drop(columns=['fitness']).columns.values
-            # self.collected_data = pd.DataFrame([], columns=self.targets + ['fitness'])
-            return df
         else:
             df = pd.concat(
                 (pd.read_csv(f, header=header, names=self.parameters.schema) for f in all_files)).reset_index(
                 drop=True)
             self.targets = df.drop(columns=['fitness']).columns.values
-            # self.collected_data = pd.DataFrame([], 284199)
-            return df
+        return df
 
     def create_categories(self, df, threshold):
         df['category'] = pd.cut(df['fitness'], bins=[-np.inf, threshold, 1], include_lowest=True, labels=[0, 1])
