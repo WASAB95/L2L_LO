@@ -5,6 +5,7 @@ import glob
 import numpy as np
 import logging
 from collections import namedtuple
+from os.path import exists
 
 import torch
 from matplotlib import pyplot as plt
@@ -60,11 +61,21 @@ class NNOptimizer(Optimizer):
         if optimizee_bounding_func is not None:
             current_eval_pop = [self.optimizee_bounding_func(ind) for ind in current_eval_pop]
 
-        input_data = self.read_data_from_file(path=parameters.input_path,
+        if exists('../data_category.csv'):
+            print('data category exist')
+            df = pd.read_csv('../data_category.csv')
+            fitness = df['fitness'].values
+            targets = df.drop(columns=['fitness']).values
+            test_df = df.sample(1000, random_state=423)
+            self.test_fit = test_df['fitness'].values
+            self.test_tar = test_df.drop(columns=['fitness']).values
+        else:
+            input_data = self.read_data_from_file(path=parameters.input_path,
                                               header=parameters.header)
-        df = self.create_categories(input_data, 0.9)
-        fitness, features = self.get_train_data(df)
-        train_loader = self.get_train_loader(fitness, features, parameters.batch_size)
+            df = self.create_categories(input_data, 0.9)
+            fitness, targets = self.get_train_data(df)
+
+        train_loader = self.get_train_loader(fitness, targets, parameters.batch_size)
         start = datetime.now().time()
         self.train_network(train_loader, parameters.epochs)
         end = datetime.now().time()
@@ -85,7 +96,6 @@ class NNOptimizer(Optimizer):
         logger.info("  Evaluating %i individuals" % len(fitnesses_results))
 
         # df = pd.DataFrame(old_eval_pop)
-
         fitnesses_list = [i[1][0] for i in fitnesses_results]
         # df['fitness'] = fitnesses_list
         self.collected_data += fitnesses_list
@@ -121,27 +131,32 @@ class NNOptimizer(Optimizer):
 
         self.best_dict[self.g] = sorted_fitness[0]
 
-        if 0 < self.g < self.parameters.n_iteration and abs(self.best_dict[self.g - 1] - self.best_dict[self.g]) <= 0.0001:
+        stop = False
+        if 0 < self.g < traj.n_iteration - 1 and abs(self.best_dict[self.g - 1] - self.best_dict[self.g]) <= 0.0001:
             if self.trained:
-                self.g = traj.n_iteration - 1
+                stop = True
             else:
                 # compute the difference between current and previous fitness and set a threshold to trigger this
                 logger.info(f"Training  STARTED in generation {self.g}")
                 # targets = self.collected_data[['amp', 'phase']].values
                 # feature = self.collected_data[['fitness']].values
                 targets = self.collected_data
-                feature = self.collected_data
-                train_lodaer = self.get_train_loader(feature, targets, batchsize=1)
-                self.train_network(train_lodaer, epochs=1, pre=False)
+                feature = [pow(i, len(self.training_generations)+1) for i in self.collected_data]
+                # targets = self.test_tar * 2
+                # feature = self.test_fit
+                # train_lodaer = self.get_train_loader(feature, targets, batchsize=len(feature))
+                # self.optimizer = torch.optim.SGD(self.model.parameters(), lr=0.1, momentum=0.9)
+                for g in self.optimizer.param_groups:
+                    g['lr'] = 0.01
+                self.train_network(feature, epochs=100, pre=False)
                 self.trained = True
                 self.training_generations.append(self.g)
-                self.collected_data.clear()
+                # self.collected_data.clear()
         else:
             self.trained = False
 
-        new_individuals = [self.model(torch.tensor([f]).double().view(1, 1)) for f in fitnesses_list]
-
-        if self.g < traj.n_iteration - 1:
+        if self.g < traj.n_iteration - 1 and not stop:
+            new_individuals = [self.model(torch.tensor([f]).double().view(1, 1)) for f in fitnesses_list]
             new_individual_list = []
             for r in new_individuals:
                 temp = {}
@@ -173,27 +188,92 @@ class NNOptimizer(Optimizer):
         """
         pass
 
-    def train_network(self, train_loader, epochs, pre=True):
+    def apply_loss(self, loss_list, epochs):
         for epoch in range(epochs):
-            for idx, (data, targets) in enumerate(train_loader):
-                data = data.view(data.size(0), 1).to(self.device)
+            loss = torch.tensor(1 - np.mean(loss_list), requires_grad=True).to(self.device)
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
 
+
+    def train_network(self, train_loader, epochs, pre=True):
+        loss_list = []
+        loss_list_2 = []
+        steps = 0
+        for epoch in range(epochs):
+
+            if not pre:
+                loss = torch.tensor(1 - np.mean(train_loader), requires_grad=True).to(self.device)
+                loss_list_2.append(loss.item())
+                # torch.tensor(a, requires_grad=True, dtype=torch.float).to(device)
                 self.optimizer.zero_grad()
-
-                if pre:
-                    amp_target, ph_target = torch.split(targets, 1, 1)
-                    amp_target = amp_target.to(self.device)
-                    ph_target = ph_target.to(self.device)
-                    output = self.model(data)
-                    amp_out = output['amp']
-                    phase_out = output['phase']
-                    loss = self.loss_function(amp_out, amp_target)
-                    loss = loss + self.loss_function(phase_out, ph_target)
-                else:
-                    loss = Variable(torch.tensor(1 - data.mean().item()).data, requires_grad=True)
-
+                # if not pre:
+                #     logger.info(f"loss_list_2: {loss_list_2}")
                 loss.backward()
                 self.optimizer.step()
+            else:
+
+                for idx, (data, targets) in enumerate(train_loader):
+                    data = data.view(data.size(0), 1).to(self.device)
+
+                    if pre:
+                        amp_target, ph_target = torch.split(targets, 1, 1)
+                        amp_target = amp_target.to(self.device)
+                        ph_target = ph_target.to(self.device)
+                        # logger.info(f"epoch:  {epoch}, idx: {idx}")
+                        # logger.info(f"data {data}")
+                        # logger.info(f"amp_target {amp_target}/")
+                        # logger.info(f"ph_target {ph_target}")
+                        output = self.model(data)
+                        amp_out = output['amp']
+                        phase_out = output['phase']
+                        # logger.info(f"amp_out {amp_out}")
+                        # logger.info(f"phase_out {phase_out}")
+                        loss = self.loss_function(amp_out, amp_target)
+                        loss = loss + self.loss_function(phase_out, ph_target)
+                        loss_list.append(loss.item())
+                    else:
+                        # loss = Variable(torch.tensor(1 - data.mean().item()).data, requires_grad=True)
+                        # loss = torch.tensor(1 - data.mean(), requires_grad=True)
+                        # output = self.model(data.to(self.device))
+                        loss = self.loss_function(torch.tensor(0.).type(torch.DoubleTensor), data.mean())
+                        loss_list_2.append(loss.item())
+                        # logger.info(f"data in generation {self.g} is {data}")
+                        logger.info(f"Loss in generation {self.g} is {loss}")
+
+                    self.optimizer.zero_grad()
+                    # if not pre:
+                    #     logger.info(f"loss_list_2: {loss_list_2}")
+                    loss.backward()
+                    self.optimizer.step()
+
+            if pre:
+                steps += idx + 1
+            logger.info(f"loss_list: {len(loss_list)}")
+            logger.info(f"loss_list_2: {len(loss_list_2)}")
+
+            # state_dict = self.model.state_dict()
+            # f = open(f"../weights.csv", "a")
+            # f.write(f"amp layer 1 after epoch {epoch}: {state_dict['fa.weight']}" + "\n")
+            # f.write(f"phase layer 1 after epoch {epoch}: {state_dict['fp.weight']}" + "\n")
+            # # f.write(f"amp layer 2 after epoch {epoch}: {state_dict['fao.weight']}" + "\n")
+            # # f.write(f"phase layer 2 after epoch {epoch}: {state_dict['fpo.weight']}" + "\n")
+            # f.close()
+
+
+        if pre:
+            step = np.linspace(0, steps, steps)
+            plt.plot(step, np.array(loss_list))
+            plt.xlabel('training step')
+            plt.ylabel('loss')
+            plt.show()
+
+        state_dict = self.model.state_dict()
+
+        logger.info(f"amp layer 1: {state_dict['fa.weight']}")
+        logger.info(f"phase layer 1: {state_dict['fp.weight']}")
+        logger.info(f"amp layer 2: {state_dict['fao.weight']}")
+        logger.info(f"phase layer 2: {state_dict['fpo.weight']}")
 
     def get_train_loader(self, fitness, features, batchsize):
         train_tensor = torch.utils.data.TensorDataset(torch.tensor(fitness, requires_grad=True), torch.tensor(features))
