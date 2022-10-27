@@ -21,7 +21,7 @@ from l2l.optimizees.optimizee import Optimizee, OptimizeeParameters
 from l2l.optimizers.optimizer import Optimizer, OptimizerParameters
 
 
-def main():
+def main(s1,s2):
     # define a directory to store the results
     experiment = Experiment(root_dir_path='../results')
     # prepare_experiment returns the trajectory and all jube parameters
@@ -34,7 +34,7 @@ def main():
                                                           debug=False)
 
     ## Innerloop simulator
-    optimizee_parameters = SignalGeneratorOptimizeeParameters(frequency=5, amplitude=[1, 3], phase=[-1, 1], seed=2433,
+    optimizee_parameters = SignalGeneratorOptimizeeParameters(frequency=5, amplitude=[1, 3], phase=[-1, 0], seed=2433,
                                                               range=1000)
     optimizee = SignalGeneratorOptimizee(traj, optimizee_parameters)
 
@@ -59,9 +59,9 @@ def main():
 
     # ------------------------------------- GradientDescent ------------------------------------#
 
-    # parameters = RMSPropParameters(learning_rate=0.0015, exploration_step_size=0.02,
-    #                                n_random_steps=4, momentum_decay=0.9,
-    #                                n_iteration=30, stop_criterion=np.Inf, seed=64)
+    # parameters = RMSPropParameters(learning_rate=0.025, exploration_step_size=0.02,
+    #                                n_random_steps=9, momentum_decay=0.9,
+    #                                n_iteration=50, stop_criterion=np.Inf, seed=s2)
 
     # parameters = AdaMaxParameters(learning_rate=0.02, exploration_step_size=0.02, n_random_steps=2, first_order_decay=0.9,
     #                             second_order_decay=0.999, n_iteration=15, stop_criterion=np.Inf,seed=123)
@@ -73,15 +73,16 @@ def main():
     #                                      optimizee_fitness_weights=(1.0,),
     #                                      parameters=parameters)
 
-    parameters = NNOptimizerParameters(learning_rate=0.0015, pop_size=5, neurons=5, batch_size=256, epochs=100,
+    parameters = NNOptimizerParameters(learning_rate=0.001, pop_size=20, neurons=5, batch_size=512, epochs=100,
                                        input_path='../data_combined.csv', schema=[], header=0,
                                        n_iteration=20, stop_criterion=np.Inf, seed=6514)
-    #
+
     optimizer = NNOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
                             optimizee_fitness_weights=(1.0,),
                             parameters=parameters)
 
-    # ------------------------------------- Evolution ------------------------------------#
+    # ------------------------------------- Evol
+    # tion ------------------------------------#
     # optimizer_seed = 1234
     # parameters = EvolutionStrategiesParameters(
     #     learning_rate=0.5,
@@ -119,10 +120,10 @@ def main():
 
 
 if __name__ == '__main__':
-    # random = np.random.RandomState(123)
-    # for i in range(20):
-    #     shutil.rmtree('../results')
-    #     seed1 = random.randint(1, 1000)
-    #     seed2 = random.randint(1, 1000)
-    #     main(seed1, seed2)
-    main()
+    random = np.random.RandomState(5231)
+    for i in range(1):
+        shutil.rmtree('../results')
+        seed1 = random.randint(1, 1000)
+        seed2 = random.randint(1, 1000)
+        main(seed1, seed2)
+    # main()

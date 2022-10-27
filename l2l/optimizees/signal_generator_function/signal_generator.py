@@ -25,10 +25,14 @@ class SignalGeneratorOptimizee(Optimizee):
         self.range = parameters.range
         self.am = [self.random.uniform(parameters.amplitude[0], parameters.amplitude[1]) for i in range(self.range)]
         self.ph = [self.random.uniform(parameters.phase[0], parameters.phase[1]) for i in range(self.range)]
+        print(np.mean(self.am))
+        print(np.mean(self.ph))
 
     def create_individual(self):
         amp = self.random.normal(1, 0.5)
         phase = self.random.normal(1, 0.5)
+        # amp = 4
+        # phase = -0.9
         return dict(amp=amp, phase=phase)
 
     def bounding_func(self, individual):
