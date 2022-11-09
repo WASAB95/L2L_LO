@@ -34,7 +34,7 @@ def main(s1,s2):
                                                           debug=False)
 
     ## Innerloop simulator
-    optimizee_parameters = SignalGeneratorOptimizeeParameters(frequency=5, amplitude=[1, 3], phase=[-1, 0], seed=2433,
+    optimizee_parameters = SignalGeneratorOptimizeeParameters(frequency=5, amplitude=[1, 3], phase=[-1, 2], seed=2433,
                                                               range=1000)
     optimizee = SignalGeneratorOptimizee(traj, optimizee_parameters)
 
@@ -73,9 +73,9 @@ def main(s1,s2):
     #                                      optimizee_fitness_weights=(1.0,),
     #                                      parameters=parameters)
 
-    parameters = NNOptimizerParameters(learning_rate=0.001, pop_size=20, neurons=5, batch_size=512, epochs=100,
-                                       input_path='../data_combined.csv', schema=[], header=0,
-                                       n_iteration=20, stop_criterion=np.Inf, seed=6514)
+    parameters = NNOptimizerParameters(learning_rate=0.001, pop_size=10, neurons=5, batch_size=512, epochs=100,
+                                       input_path='../data_combined.csv', schema=[], header=0, target_category=0.9,
+                                       n_iteration=10, stop_criterion=np.Inf, seed=6514)
 
     optimizer = NNOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
                             optimizee_fitness_weights=(1.0,),

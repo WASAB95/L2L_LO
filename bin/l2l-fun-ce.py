@@ -28,7 +28,7 @@ def main():
     optimizee = FunctionGeneratorOptimizee(traj, benchmark_function, seed=101)
 
     ## Outerloop optimizer initialization
-    parameters = CrossEntropyParameters(pop_size=10, rho=0.9, smoothing=0.0, temp_decay=0, n_iteration=1000,
+    parameters = CrossEntropyParameters(pop_size=10, rho=0.9, smoothing=0.0, temp_decay=0, n_iteration=5,
                                         distribution=NoisyGaussian(noise_magnitude=1., noise_decay=0.99),
                                         stop_criterion=np.inf, seed=102)
     optimizer = CrossEntropyOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
