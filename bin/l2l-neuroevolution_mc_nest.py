@@ -59,5 +59,5 @@ def main():
 
 
 if __name__ == '__main__':
-    # shutil.rmtree('../results')
+    shutil.rmtree('../results')
     main()
