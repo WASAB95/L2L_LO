@@ -20,7 +20,7 @@ def run_experiment():
         
     # Optimizee params
     optimizee_parameters = NeuroEvolutionOptimizeeMCParameters(
-        path=experiment.root_dir_path, seed=1, save_n_generation=10, run_headless=True, load_parameter=False)
+        path=experiment.root_dir_path, seed=987, save_n_generation=2, run_headless=True, load_parameter=False)
     optimizee = NeuroEvolutionOptimizeeMC(traj, optimizee_parameters)
 
     optimizer_seed = 12345678

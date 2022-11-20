@@ -217,13 +217,13 @@ class NeuroEvolutionOptimizeeMC(Optimizee):
                 self.generation, self.ind_idx)
 
             individual = {
-                'weights': weights,
-                'fitness': fitness
+                'weights': weights
             }            
             df = pd.DataFrame(individual)
             df = df.T
+            df['fitness'] = fitness
             df.to_csv(os.path.join(result_folder, results_filename),
-                      header=False, index=False)               
+                      header=True, index=False)
         return (fitness,) 
 
     def bounding_func(self, individual):

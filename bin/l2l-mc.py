@@ -39,7 +39,7 @@ def run_experiment():
                                                  epochs=10,
                                                  input_path='../data/all_data.csv', schema=[], header=0,
                                                  target_category=0.44,
-                                                 n_iteration=10, stop_criterion=np.Inf, seed=6514)
+                                                 n_iteration=100, stop_criterion=np.Inf, seed=6514)
 
     optimizer = NNOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
                             optimizee_fitness_weights=(1.0,),

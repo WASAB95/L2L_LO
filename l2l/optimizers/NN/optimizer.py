@@ -1,3 +1,4 @@
+import os
 import sys
 from datetime import datetime
 
@@ -196,7 +197,7 @@ class NNOptimizer(Optimizer):
             logger.info('  Average Fitness: %.4f', np.mean(sorted_fitness))
             logger.info("  Current fitness is %.2f", self.current_fitness)
             logger.info('  Best Fitness: %.4f', sorted_fitness[0])
-            logger.info("  Best individual is %s", sorted_population[0])
+            # logger.info("  Best individual is %s", sorted_population[0])
 
             self.best_dict[self.g] = sorted_fitness[0]
 
@@ -250,8 +251,8 @@ class NNOptimizer(Optimizer):
                 self._expand_trajectory(traj)
 
     def end(self, traj):
-        logger.info('  Best Fitness: %.4f', self.best_individual['f'])
         logger.info("  Best individual is %s", self.best_individual['individuals'])
+        logger.info('  Best Fitness: %.4f', self.best_individual['f'])
         logger.info("  found in generation %d", self.best_individual['g'])
 
         # plt.figure(figsize=(self.parameters.n_iteration / 5, self.parameters.n_iteration / 10))
@@ -316,8 +317,8 @@ class NNOptimizer(Optimizer):
                                            shuffle=True)
 
     def read_data_from_file(self, path, header):
-        all_files = glob.glob(path)
-        if self.parameters.header is not None:
+        all_files = glob.glob(path) if '.csv' in path else glob.glob(os.path.join(path, '*.csv'))
+        if header is not None:
             df = pd.concat((pd.read_csv(f, header=header) for f in all_files)).reset_index(
                 drop=True)
             self.targets = df.drop(columns=['fitness']).columns.values
