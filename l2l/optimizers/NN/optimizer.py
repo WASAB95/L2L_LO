@@ -102,6 +102,11 @@ class NNOptimizer(Optimizer):
 
         input_data = self.read_data_from_file(path=parameters.input_path,
                                               header=parameters.header)
+
+        # input_data = data.drop(columns=['fitness'])
+        # input_data = (input_data - input_data.min()) / (input_data.max() - input_data.min())
+        # input_data['fitness'] = data['fitness']
+
         self.categorized_df = self.create_categories(input_data, parameters.target_category)
 
         self.clustered_df, self.clusters_labels = cluster_data(
@@ -110,6 +115,16 @@ class NNOptimizer(Optimizer):
 
         self.centroids = get_clusters_centroids(self.clustered_df, self.clusters_labels)
         print(self.centroids)
+
+        # target_label = self.clusters_labels[0]
+        #
+        # import time
+        # start_time = time.time()
+        # fitness, targets = self.get_train_data(df=self.categorized_df, clustered_df=self.clustered_df,
+        #                                        target_label=target_label)
+        # print("--- %s seconds ---" % (time.time() - start_time))
+        #
+        # print("DONE")
 
         current_eval_pop = []
         for c in self.centroids:
@@ -217,7 +232,7 @@ class NNOptimizer(Optimizer):
 
                 print(f'adjust is {adjust}')
                 self.final_df[self.targets] = self.final_df[self.targets] + adjust
-                self.final_df.to_csv(f'mapped_data_test_01_{self.g}.csv', index=False)
+                # self.final_df.to_csv(f'mapped_data_test_01_{self.g}.csv', index=False)
                 targets = self.final_df[self.targets].values
                 fitness = self.final_df[['fitness']].values
                 train_loader = self.get_train_loader(fitness, targets, self.parameters.batch_size)
@@ -345,7 +360,7 @@ class NNOptimizer(Optimizer):
 
         data[self.targets] = data.apply(lambda row: self.min_distance(row=row, ref_array=ref), axis=1,
                                         result_type='expand')
-        # data.to_csv('mapped_data_test_1.csv', index=False)
+        # data.to_csv('mapped_data_mc.csv', index=False)
         self.final_df = data
         return data[['fitness']].values, data[self.targets].values
 
@@ -358,5 +373,5 @@ class NNOptimizer(Optimizer):
         ind = distances.argsort()[:one_percent]
         # amp = np.mean([a[0] for a in ref_array[ind]])
         # phase = np.mean([p[1] for p in ref_array[ind]])
-        targets_list = [np.mean([a[i] for a in ref_array[ind]]) for i in range(ref_array.ndim)]
+        targets_list = [np.mean([a[i] for a in ref_array[ind]]) for i in range(len(self.targets))]
         return targets_list
