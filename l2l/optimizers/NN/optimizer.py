@@ -149,9 +149,9 @@ class NNOptimizer(Optimizer):
             target_label = self.clusters_labels[cluster_ind]
             print(fitnesses_list)
             print(target_label)
-            if exists('../data/all_data.csv'):
-                print('all_data exist')
-                df = pd.read_csv('../data/all_data.csv')
+            if exists('../data/mc_mapped_00000.csv'):
+                print('mc_mapped_00.csv exist')
+                df = pd.read_csv('../data/mc_mapped_00.csv')
                 fitness = df['fitness'].values
                 targets = df.drop(columns=['fitness']).values
                 self.final_df = df
@@ -255,6 +255,12 @@ class NNOptimizer(Optimizer):
         logger.info('  Best Fitness: %.4f', self.best_individual['f'])
         logger.info("  found in generation %d", self.best_individual['g'])
 
+        df_out = pd.DataFrame({'ind': self.best_individual['individuals']})
+        df_out = df_out.T
+        df_out.to_csv(
+            '/home/wasab/L2L_V2/best_individuals/test_{}'.format(datetime.now().strftime("%Y-%m-%d-%H_%M_%S")) + '.csv',
+            header=False, index=False)
+
         # plt.figure(figsize=(self.parameters.n_iteration / 5, self.parameters.n_iteration / 10))
         plt.scatter(self.best_dict.keys(), self.best_dict.values())
         plt.xticks(
@@ -333,6 +339,9 @@ class NNOptimizer(Optimizer):
         df['category'] = pd.cut(df['fitness'], bins=[-np.inf, threshold, 1], include_lowest=True, labels=[0, 1])
         return df
 
+
+    ## df: data frame with category [1,0] [w0,..,w314,fit,cat]
+    ## clusterd_df : only target data with cluster [w0,..,w314,cluster]
     def get_train_data(self, df, clustered_df, target_label):
         data = df.drop(columns=['category'])
 
@@ -344,7 +353,7 @@ class NNOptimizer(Optimizer):
 
         data[self.targets] = data.apply(lambda row: self.min_distance(row=row, ref_array=ref), axis=1,
                                         result_type='expand')
-        # data.to_csv('mapped_data_mc.csv', index=False)
+        # data.to_csv('mapped_data_02.csv', index=False)
         self.final_df = data
         return data[['fitness']].values, data[self.targets].values
 
