@@ -133,6 +133,9 @@ class NeuroEvolutionOptimizeeMC(Optimizee):
         else:
             weights = self.rng.uniform(self.min_weight, self.max_weight, 315)
         # create individual
+        # indi = pd.read_csv("/home/wasab/L2L_V2/best_individuals/test_2022-12-13-15_41_31.csv", header=None)
+        # weights = indi.iloc[0].to_numpy()
+
         individual = {
             'weights': weights
         }
