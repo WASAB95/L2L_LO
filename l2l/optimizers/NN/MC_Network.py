@@ -13,13 +13,14 @@ class Network(nn.Module):
 
         # Define reulu activation and softmax output
         self.relu = nn.ReLU()
+        self.selu = nn.SELU()
         self.sigmoid = nn.Sigmoid()
 
     def forward(self, x):
         first_l = self.first_layer(x)
-        first_l = self.relu(first_l)
+        first_l = self.selu(first_l)
         second_l = self.second_layer(first_l)
-        second_l = self.relu(second_l)
+        second_l = self.selu(second_l)
         output = self.output_layer(second_l)
         # output = self.relu(output)
 

@@ -28,8 +28,11 @@ NNOptimizerParameters = namedtuple('NNParamters', ['neurons', 'learning_rate', '
                                                    'header', 'target_category'])
 
 
-def normalize_df(df):
-    return (df - df.min()) / (df.max() - df.min())
+def normalize_df(df, min=-20, max=20):
+    return (df - min) / (max - min)
+
+def denormalize_df(df, min=-20, max=20):
+    return df*(max-min) + min
 
 
 def print_weights(model):
@@ -61,6 +64,13 @@ def get_clusters_centroids(df, cluster_labels):
     return centroids
 
 
+def reset_dictionary(keys):
+    dic = {'fitness': []}
+    for k in keys:
+        dic[k] = []
+    return dic
+
+
 class NNOptimizer(Optimizer):
     def __init__(self, traj,
                  optimizee_create_individual,
@@ -83,6 +93,8 @@ class NNOptimizer(Optimizer):
         self.device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
         self.loss_function = nn.MSELoss()
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=parameters.learning_rate, momentum=0.9)
+        # self.optimizer = torch.optim.RMSprop(self.model.parameters(), lr=parameters.learning_rate, momentum=0.2)
+        # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=parameters.learning_rate)
 
         traj.f_add_parameter('learning_rate', parameters.learning_rate, comment='Value of learning rate')
         traj.f_add_parameter('pop_size', parameters.pop_size,
@@ -95,6 +107,7 @@ class NNOptimizer(Optimizer):
         self.best_dict = {}
         self.trained = False
         self.training_generations = []
+        self.shift = False
 
         __, self.optimizee_individual_dict_spec = dict_to_list(optimizee_create_individual(), get_dict_spec=True)
 
@@ -106,6 +119,8 @@ class NNOptimizer(Optimizer):
         input_data = self.read_data_from_file(path=parameters.input_path,
                                               header=parameters.header)
 
+        input_data[self.targets] = normalize_df(input_data[self.targets])
+
         self.categorized_df = self.create_categories(input_data, parameters.target_category)
 
         self.clustered_df, self.clusters_labels = cluster_data(
@@ -114,6 +129,8 @@ class NNOptimizer(Optimizer):
 
         self.centroids = get_clusters_centroids(self.clustered_df, self.clusters_labels)
         print(self.centroids)
+
+        # self.collected_data = reset_dictionary(self.targets)
 
         # target_label = self.clusters_labels[0]
         #
@@ -169,7 +186,9 @@ class NNOptimizer(Optimizer):
 
         else:
 
-            self.collected_data += fitnesses_list
+            # self.collected_data += fitnesses_list
+            for ind, p in enumerate(old_eval_pop):
+                self.collected_data.append(np.append(p['weights'], fitnesses_list[ind]))
 
             weighted_fitness_list = []
 
@@ -195,40 +214,217 @@ class NNOptimizer(Optimizer):
             logger.info("-- End of generation %d --", self.g)
             logger.info("  Evaluated %d individuals", len(fitnesses_results))
             logger.info('  Average Fitness: %.4f', np.mean(sorted_fitness))
-            logger.info("  Current fitness is %.2f", self.current_fitness)
+            # logger.info("  Current fitness is %.2f", self.current_fitness)
             logger.info('  Best Fitness: %.4f', sorted_fitness[0])
             # logger.info("  Best individual is %s", sorted_population[0])
 
-            self.best_dict[self.g] = sorted_fitness[0]
+            self.best_dict[self.g] = sorted_fitness
 
-            if self.best_dict[self.g] > self.best_individual['f']:
+            if self.best_dict[self.g][0] > self.best_individual['f']:
+                logger.info("WALIIIIIIIIIIIIIIIIIIIIIIIIIIIIIII")
                 self.best_individual['g'] = self.g
-                self.best_individual['f'] = self.best_dict[self.g]
+                self.best_individual['f'] = self.best_dict[self.g][0]
                 self.best_individual['individuals'] = sorted_population[0]
+                self.counter = 0
 
             # if self.best_dict[self.g] >= self.parameters.target_category:
             #     self.new_centroids.append(sorted_population[0] - self.current_centroids)
+            self.save_n_generation = 10
+            if self.g % self.save_n_generation == 0:
+                df = pd.DataFrame({'ind': sorted_population[0]})
+                df.T.to_csv(f"/home/wasab/L2L_V2/collected_individuals/individuals_gen_{self.g}.csv", index=False, header=False,)
 
-            if self.g > 1 and (self.best_dict[self.g] < self.best_dict[self.g - 1]
-                               or abs(self.best_dict[self.g - 1] - self.best_dict[self.g]) <= 0.0001):
-                self.counter += 1
+
+            if self.g > 1 and (self.best_dict[self.g][0] < self.best_dict[self.g - 1][0]
+                               or abs(self.best_dict[self.g - 1][0] - self.best_dict[self.g][0]) <= 0.0001):
+                self.counter += 0.5
             else:
-                self.counter = 0
+                self.counter = self.counter - 0.5 if self.counter >= 0.5 else 0
 
             stop = False
 
-            if 1 < self.g < traj.n_iteration - 1 and self.counter >= 3 and not stop:
+            if self.best_individual['f'] >= self.parameters.target_category:
+                if self.g > 1 and (self.best_dict[self.g][0] < self.best_dict[self.g - 1][0]
+                                   or abs(self.best_dict[self.g - 1][0] - self.best_dict[self.g][0]) <= 0.0001):
+                    self.counter += 0.25
+
+            logger.info(f"counter is: {self.counter}")
+
+            count_limit = 2 if self.g >= traj.n_iteration/2 else 2.5
+            # if 1 < self.g < traj.n_iteration - 1 and (self.counter >= 3 or (self.best_individual['f'] > 0 and self.best_dict[self.g][0] - self.best_dict[self.g - 1][0] <= - self.best_individual['f'])) and not stop:
+            if 1 < self.g < traj.n_iteration - 1 and self.counter >= count_limit and not stop:
                 self.model.apply(reset_weight)
-                self.centroids_list.append(self.best_individual['individuals'])
+
+                # if len(self.training_generations) == 0:
+                #     self.centroids_list = [self.best_individual['individuals']]
+                # else:
+                #     self.centroids_list.append(self.best_individual['individuals'])
+
+
+                # self.centroids_list.append(self.best_individual['individuals'])
                 # self.centroids_list = [self.best_individual['individuals']]
-                # self.best_individual['f'] = -np.inf
-                print(f'centroids_list: {self.centroids_list}')
+
+                # shiftting approach
+
+                collected_data_df = pd.DataFrame(self.collected_data, columns=np.append(self.targets, 'fitness'))
+                collected_data_df[self.targets] = normalize_df(collected_data_df[self.targets])
+                #
+                filter_collect = collected_data_df[collected_data_df['fitness'] > self.parameters.target_category]
+                filter_final = self.final_df[self.final_df['fitness'] > self.parameters.target_category]
+                #
+                merged_df = pd.concat([filter_collect, filter_final], ignore_index=True)
+                #
+                num = 5
+                precent = num if (int(len(merged_df) * (num / 100)) > 0) else 100
+
+
+########
+                merged_df = merged_df.sort_values(by=['fitness'], ascending=False).drop_duplicates().head(
+                    int(len(merged_df) * (precent / 100)))
+
+                logger.info(f"top {precent}% fitness: {merged_df[['fitness']].values}")
+                # ref = np.concatenate((filter_collect.drop(columns=['fitness']).to_numpy(), merged_df.drop(columns=['fitness']).to_numpy()))
+                ref = merged_df.drop(columns=['fitness']).to_numpy()
+########
+
+                # if len(filter_collect) > 0:
+                #     ref = filter_collect.drop(columns=['fitness']).to_numpy()
+                #     logger.info(f"collected fitness: {filter_collect[['fitness']].values}")
+                # else:
+                #     ref = merged_df.drop(columns=['fitness']).to_numpy()
+                #     logger.info(f"top {precent}% fitness: {merged_df[['fitness']].values}")
+
+
+                collected_data_df[self.targets] = collected_data_df.apply(
+                    lambda row: self.min_distance(row=row, ref_array=ref), axis=1,
+                    result_type='expand')
+
+                # self.centroids_list = [self.best_individual['individuals']]
+                self.centroids_list.append(self.best_individual['individuals'])
+                logger.info(f"centroids fitness {self.best_individual['f']}")
+                logger.info(f"number of centroids {len(self.centroids_list)}")
                 adjust = np.mean(self.centroids_list, axis=0) - self.current_centroids
                 self.current_centroids = np.mean(self.centroids_list, axis=0)
-
-                print(f'adjust is {adjust}')
+                #
+                # # print(f'adjust is {adjust}')
                 self.final_df[self.targets] = self.final_df[self.targets] + adjust
-                # self.final_df.to_csv(f'mapped_data_test_01_{self.g}.csv', index=False)
+                ### self.final_df.to_csv(f'mapped_data_test_01_{self.g}.csv', index=False)
+                #
+                self.final_df = pd.concat([self.final_df, collected_data_df], ignore_index=True)
+
+
+
+                # ### Hybrid Approach ###
+                precent = 10
+                # logger.info("Shiftting Started")
+                # #
+                # if not self.shift:
+                #     # self.model.apply(reset_weight)
+                #
+                #     collected_data_df = pd.DataFrame(self.collected_data, columns=np.append(self.targets, 'fitness'))
+                #     # collected_data_df[self.targets] = normalize_df(collected_data_df[self.targets])
+                #     print(collected_data_df)
+                #
+                #     filter_collect = collected_data_df[collected_data_df['fitness'] > self.parameters.target_category]
+                #     filter_final = self.final_df[self.final_df['fitness'] > self.parameters.target_category]
+                #
+                #
+                #     merged_df = pd.concat([filter_collect, filter_final], ignore_index=True)
+                #
+                #     merged_df = merged_df.sort_values(by=['fitness'], ascending=False).drop_duplicates().head(int(len(merged_df) * (precent / 100)))
+                #     logger.info(f"top {precent}% fitness: {merged_df[['fitness']].values}")
+                #
+                #     ref = merged_df.drop(columns=['fitness']).to_numpy()
+                #
+                #     collected_data_df[self.targets] = collected_data_df.apply(
+                #         lambda row: self.min_distance(row=row, ref_array=ref), axis=1,
+                #         result_type='expand')
+                #
+                #
+                #     # if len(self.training_generations) == 0:
+                #     #     self.centroids_list = [self.best_individual['individuals']]
+                #     # else:
+                #     #     self.centroids_list.append(self.best_individual['individuals'])
+                #
+                #     # self.centroids_list = [self.best_individual['individuals']]
+                #     self.centroids_list.append(self.best_individual['individuals'])
+                #     adjust = np.mean(self.centroids_list, axis=0) - self.current_centroids
+                #     self.current_centroids = np.mean(self.centroids_list, axis=0)
+                #
+                #     # print(f'adjust is {adjust}')
+                #     self.final_df[self.targets] = self.final_df[self.targets] + adjust
+                #     # self.final_df.to_csv(f'mapped_data_test_01_{self.g}.csv', index=False)
+                #
+                #
+                #
+                #     self.final_df = pd.concat([self.final_df, collected_data_df], ignore_index=True)
+                #
+                #     self.shift =True
+                #
+                # else:
+                #     logger.info("Mapping Started")
+                #
+                #     collected_data_df = pd.DataFrame(self.collected_data, columns=np.append(self.targets, 'fitness'))
+                #     # collected_data_df[self.targets] = normalize_df(collected_data_df[self.targets])
+                #     self.final_df = pd.concat([self.final_df, collected_data_df], ignore_index=True)
+                #
+                #     filter_new_df = self.final_df[self.final_df['fitness'] > self.parameters.target_category]
+                #     # ref = filter_new_df.sort_values(by=['fitness'],ascending=False).head(int(len(filter_new_df)*(precent/100))).drop(columns=['fitness']).to_numpy()
+                #
+                #     ref = filter_new_df.sort_values(by=['fitness'],ascending=False).drop_duplicates().head(int(len(filter_new_df)*(precent/100)))
+                #     logger.info(f"top {precent}% fitness: {ref[['fitness']].values}")
+                #     ref = ref.drop(columns=['fitness']).to_numpy()
+                #
+                #     self.final_df[self.targets] = self.final_df.apply(lambda row: self.min_distance(row=row, ref_array=ref), axis=1,
+                #                                     result_type='expand')
+                #     self.shift = False
+
+
+                ##### re-mapping approahc ##########
+                #
+                # collected_data_df = pd.DataFrame(self.collected_data, columns=np.append(self.targets, 'fitness'))
+                # # collected_data_df[self.targets] = normalize_df(collected_data_df[self.targets])
+                # self.final_df = pd.concat([self.final_df, collected_data_df], ignore_index=True)
+                #
+                # filter_new_df = self.final_df[self.final_df['fitness'] > self.parameters.target_category]
+                #
+                # ref = filter_new_df.sort_values(by=['fitness'],ascending=False).drop_duplicates().head(int(len(filter_new_df)*(precent/100)))
+                # logger.info(f"top {precent}% fitness: {ref[['fitness']].values}")
+                # ref = ref.drop(columns=['fitness']).to_numpy()
+                #
+                # self.final_df[self.targets] = self.final_df.apply(lambda row: self.min_distance(row=row, ref_array=ref), axis=1,
+                #                                 result_type='expand')
+
+                ################# Re-sampling Approach #####################
+
+                # collected_data_df = pd.DataFrame(self.collected_data, columns=np.append(self.targets, 'fitness'))
+                # collected_data_df[self.targets] = normalize_df(collected_data_df[self.targets])
+                # self.final_df = pd.concat([self.final_df, collected_data_df], ignore_index=True)
+                #
+                # filter_new_df = self.final_df[self.final_df['fitness'] > self.parameters.target_category]
+                #
+                # precent = 10
+                # top_5 = collected_data_df[collected_data_df['fitness'] > self.parameters.target_category]
+                # top_5 = collected_data_df.sort_values(by=['fitness'],ascending=False).head(int(len(filter_new_df)*(precent/100)))
+                # logger.info(f"top {precent}% fitness: {top_5[['fitness']].values}")
+                # top_5 = top_5.drop(columns=['fitness'])
+                #
+                # total_samples = []
+                # for col in top_5.columns.values:
+                #     mean = np.mean(top_5[col])
+                #     samples = np.random.normal(mean, 0.05, len(filter_new_df))
+                #     total_samples.append(samples)
+                #
+                # ref = np.array([list(i) for i in zip(*total_samples)])
+                #
+                # self.final_df[self.targets] = self.final_df.apply(lambda row: self.min_distance(row=row, ref_array=ref), axis=1,
+                #                                 result_type='expand')
+                #
+                # logger.info(f"final_df length {len(self.final_df)}")
+
+                ########################################################################
+
+
                 targets = self.final_df[self.targets].values
                 fitness = self.final_df[['fitness']].values
                 train_loader = self.get_train_loader(fitness, targets, self.parameters.batch_size)
@@ -238,11 +434,14 @@ class NNOptimizer(Optimizer):
                 self.collected_data.clear()
                 self.counter = 0
 
+                # self.collected_data = reset_dictionary(self.targets)
+
                 if len(self.training_generations) > 3:
                     stop = True
 
             if self.g < traj.n_iteration - 1:
                 new_individuals = [self.model(torch.tensor([f]).double()).tolist() for f in fitnesses_list]
+                new_individuals = [list(map(denormalize_df, i)) for i in new_individuals]
                 print(len(new_individuals))
                 fitnesses_results.clear()
                 self.eval_pop = [list_to_dict(c, self.optimizee_individual_dict_spec)
@@ -260,15 +459,36 @@ class NNOptimizer(Optimizer):
         df_out.to_csv(
             '/home/wasab/L2L_V2/best_individuals/test_{}'.format(datetime.now().strftime("%Y-%m-%d-%H_%M_%S")) + '.csv',
             header=False, index=False)
+        # pd.DataFrame(self.best_dict.values()).T.to_csv("/home/wasab/L2L_V2/best_individuals/all_individuals_{}".format(datetime.now().strftime("%Y-%m-%d-%H_%M_%S")) + '.csv', index=False)
+
+        mu = []
+        sigma = []
+        maxes = []
+        for k, v in self.best_dict.items():
+            mu.append(np.mean(v, 0))
+            sigma.append(np.std(v, 0))
+            maxes.append(np.max(v, 0))
+        # plt.errorbar(ordered_dict.keys(), mu, sigma, fmt='-o')
+        plt.figure(figsize=(10, 8))
+        plt.plot(self.best_dict.keys(), mu, '-*')
+        plt.plot(self.best_dict.keys(), maxes, '.-', c='g')
+        plt.xticks(np.arange(1, self.parameters.n_iteration, 1))
+        y1 = np.array(mu) + np.array(sigma)
+        y2 = np.array(mu) - np.array(sigma)
+        plt.fill_between(self.best_dict.keys(), y1, y2, alpha=.5)
+        plt.xlabel('Generations')
+        plt.ylabel('Fitness')
+        # plt.savefig('fitness.pdf', bbox_inches='tight', pad_inches=0.1)
+        plt.show()
 
         # plt.figure(figsize=(self.parameters.n_iteration / 5, self.parameters.n_iteration / 10))
-        plt.scatter(self.best_dict.keys(), self.best_dict.values())
-        plt.xticks(
-            np.arange(min(self.best_dict.keys()), max(self.best_dict.keys()) + 1, self.parameters.n_iteration / 10))
-        plt.scatter(self.training_generations, [self.best_dict[i] for i in self.training_generations], color="red")
-        plt.xlabel('generation')
-        plt.ylabel('best fitness')
-        plt.show()
+        # plt.scatter(self.best_dict.keys(), self.best_dict.values())
+        # plt.xticks(
+        #     np.arange(min(self.best_dict.keys()), max(self.best_dict.keys()) + 1, self.parameters.n_iteration / 10))
+        # plt.scatter(self.training_generations, [self.best_dict[i] for i in self.training_generations], color="red")
+        # plt.xlabel('generation')
+        # plt.ylabel('best fitness')
+        # plt.show()
         logger.info(f"Training generations {self.training_generations}")
         """
         Run any code required to clean-up, print final individuals etc.
@@ -287,8 +507,8 @@ class NNOptimizer(Optimizer):
             loss.backward()
             self.optimizer.step()
 
-        logger.info(f"weights in after adjusting")
-        print_weights(self.model)
+        # logger.info(f"weights in after adjusting")
+        # print_weights(self.model)
 
     def train_network(self, train_loader, epochs):
         loss_list = []
@@ -314,7 +534,7 @@ class NNOptimizer(Optimizer):
         plt.ylabel('loss')
         plt.show()
 
-        logger.info(f"weights in pre training")
+        # logger.info(f"weights in pre training")
         # print_weights(self.model)
 
     def get_train_loader(self, fitness, features, batchsize):
@@ -339,7 +559,6 @@ class NNOptimizer(Optimizer):
         df['category'] = pd.cut(df['fitness'], bins=[-np.inf, threshold, 1], include_lowest=True, labels=[0, 1])
         return df
 
-
     ## df: data frame with category [1,0] [w0,..,w314,fit,cat]
     ## clusterd_df : only target data with cluster [w0,..,w314,cluster]
     def get_train_data(self, df, clustered_df, target_label):
@@ -361,8 +580,9 @@ class NNOptimizer(Optimizer):
     def min_distance(self, row, ref_array):
         current_individuals = np.array([row[i] for i in self.targets])
         distances = np.array([np.linalg.norm(current_individuals - y) for y in ref_array])
-        one_percent = round(len(ref_array) / 100)
-        # one_percent = 10
+        one_percent = round(len(ref_array) / 100) if round(len(ref_array) / 100) > 1 else 1
+        # logger.info(f"one perecnt of target values: {one_percent}")
+        # one_percent = 3
         ind = distances.argsort()[:one_percent]
         # amp = np.mean([a[0] for a in ref_array[ind]])
         # phase = np.mean([p[1] for p in ref_array[ind]])

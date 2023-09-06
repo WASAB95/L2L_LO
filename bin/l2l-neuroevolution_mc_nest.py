@@ -20,14 +20,14 @@ def run_experiment():
         
     # Optimizee params
     optimizee_parameters = NeuroEvolutionOptimizeeMCParameters(
-        path=experiment.root_dir_path, seed=12435, save_n_generation=10, run_headless=True, load_parameter=False)
+        path=experiment.root_dir_path, seed=425, save_n_generation=100, run_headless=True, load_parameter=False)
     optimizee = NeuroEvolutionOptimizeeMC(traj, optimizee_parameters)
 
     optimizer_seed = 12345678
 
-    optimizer_parameters = NNOptimizerParameters(learning_rate=0.09, pop_size=1, neurons=5, batch_size=32, epochs=5,
-                                       input_path='../data/data_01.csv', schema=[], header=0, target_category=0,
-                                       n_iteration=30, stop_criterion=np.Inf, seed=6454524)
+    optimizer_parameters = NNOptimizerParameters(learning_rate=0.01, pop_size=10, neurons=5, batch_size=512, epochs=10,
+                                       input_path='../data/all_data.csv', schema=[], header=0, target_category=0.45,
+                                       n_iteration=10, stop_criterion=np.Inf, seed=6454524)
 
     optimizer = NNOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
                             optimizee_fitness_weights=(1.0,),
