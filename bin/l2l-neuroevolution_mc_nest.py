@@ -11,7 +11,7 @@ from l2l.optimizers.evolution import GeneticAlgorithmParameters, GeneticAlgorith
 
 import os
 
-def run_experiment():
+def run_experiment(s1, s2):
     experiment = Experiment(
         root_dir_path='../results')
     jube_params = { "exec": "python3"}
@@ -20,14 +20,14 @@ def run_experiment():
         
     # Optimizee params
     optimizee_parameters = NeuroEvolutionOptimizeeMCParameters(
-        path=experiment.root_dir_path, seed=425, save_n_generation=100, run_headless=True, load_parameter=False)
+        path=experiment.root_dir_path, seed=s1, save_n_generation=100, run_headless=True, load_parameter=False)
     optimizee = NeuroEvolutionOptimizeeMC(traj, optimizee_parameters)
 
     optimizer_seed = 12345678
 
     optimizer_parameters = NNOptimizerParameters(learning_rate=0.01, pop_size=10, neurons=5, batch_size=512, epochs=10,
                                        input_path='../data/all_data.csv', schema=[], header=0, target_category=0.45,
-                                       n_iteration=10, stop_criterion=np.Inf, seed=6454524)
+                                       n_iteration=20, stop_criterion=np.Inf, seed=s2)
 
     optimizer = NNOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
                             optimizee_fitness_weights=(1.0,),
@@ -54,10 +54,18 @@ def run_experiment():
     # End experiment
     experiment.end_experiment(optimizer)
 
-def main():
-    run_experiment()
+def main(s1, s2):
+    run_experiment(s1, s2)
 
 
 if __name__ == '__main__':
-    shutil.rmtree('../results')
-    main()
+    # shutil.rmtree('../results')
+    random = np.random.RandomState(512)
+    for i in range(5):
+        shutil.rmtree('../results')
+        seed1 = random.randint(1, 10000)
+        seed2 = random.randint(1000, 5000)
+        print(f"seed 1 {seed1}")
+        print(f"seed 2 {seed2}")
+        main(seed1, seed2)
+    # main()
