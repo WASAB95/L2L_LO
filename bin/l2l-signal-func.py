@@ -8,20 +8,20 @@ import numpy as np
 
 from l2l.optimizees.signal_generator_function.signal_generator import SignalGeneratorOptimizee
 from l2l.optimizees.signal_generator_function.signal_generator import SignalGeneratorOptimizeeParameters
-from l2l.optimizers.NN.optimizer import NNOptimizerParameters, NNOptimizer
+from l2l.optimizers.NN.optimizer_v2 import NNOptimizerParameters, NNOptimizer
 from l2l.optimizers.crossentropy import CrossEntropyParameters, CrossEntropyOptimizer
 from l2l.optimizers.crossentropy.distribution import Gaussian, NoisyGaussian
 from l2l.optimizers.evolution import GeneticAlgorithmParameters, GeneticAlgorithmOptimizer
 from l2l.optimizers.evolutionstrategies import EvolutionStrategiesParameters, EvolutionStrategiesOptimizer
 from l2l.optimizers.gradientdescent import RMSPropParameters, GradientDescentOptimizer, ClassicGDParameters, \
-    StochasticGDParameters
+    StochasticGDParameters, AdamParameters
 from l2l.optimizers.gridsearch import GridSearchParameters, GridSearchOptimizer
 from l2l.utils.experiment import Experiment
 from l2l.optimizees.optimizee import Optimizee, OptimizeeParameters
 from l2l.optimizers.optimizer import Optimizer, OptimizerParameters
 
 
-def main(s1,s2):
+def main(s1, s2):
     # define a directory to store the results
     experiment = Experiment(root_dir_path='../results')
     # prepare_experiment returns the trajectory and all jube parameters
@@ -34,8 +34,8 @@ def main(s1,s2):
                                                           debug=False)
 
     ## Innerloop simulator
-    optimizee_parameters = SignalGeneratorOptimizeeParameters(frequency=5, amplitude=[1, 3], phase=[-1, 2], seed=2433,
-                                                              range=1000)
+    optimizee_parameters = SignalGeneratorOptimizeeParameters(frequency=5, amplitude=[-1, 2], phase=[-3, 0], seed=s1,
+                                                              range=s2)
     optimizee = SignalGeneratorOptimizee(traj, optimizee_parameters)
 
     # Cross Entropy ##
@@ -59,27 +59,27 @@ def main(s1,s2):
 
     # ------------------------------------- GradientDescent ------------------------------------#
 
-    # parameters = RMSPropParameters(learning_rate=0.025, exploration_step_size=0.02,
+    # parameters = RMSPropParameters(learning_rate=0.001, exploration_step_size=0.01,
     #                                n_random_steps=9, momentum_decay=0.9,
     #                                n_iteration=50, stop_criterion=np.Inf, seed=s2)
 
     # parameters = AdaMaxParameters(learning_rate=0.02, exploration_step_size=0.02, n_random_steps=2, first_order_decay=0.9,
     #                             second_order_decay=0.999, n_iteration=15, stop_criterion=np.Inf,seed=123)
 
-    # parameters = AdamParameters(learning_rate=0.02, exploration_step_size=0.02, n_random_steps=2, first_order_decay=0.9,
-    #                             second_order_decay=0.999, n_iteration=15, stop_criterion=np.Inf,seed=123)
+    parameters = AdamParameters(learning_rate=0.02, exploration_step_size=0.02, n_random_steps=9, first_order_decay=0.9,
+                                second_order_decay=0.999, n_iteration=50, stop_criterion=np.Inf,seed=123)
 
-    # optimizer = GradientDescentOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
-    #                                      optimizee_fitness_weights=(1.0,),
-    #                                      parameters=parameters)
+    optimizer = GradientDescentOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
+                                         optimizee_fitness_weights=(1.0,),
+                                         parameters=parameters)
 
-    parameters = NNOptimizerParameters(learning_rate=0.001, pop_size=10, neurons=5, batch_size=512, epochs=100,
-                                       input_path='../data_combined.csv', schema=[], header=0, target_category=0.9,
-                                       n_iteration=10, stop_criterion=np.Inf, seed=6514)
+    # parameters = NNOptimizerParameters(learning_rate=0.001, pop_size=10, neurons=2, batch_size=2048, epochs=5,
+    #                                    input_path='../data_combined.csv', schema=[], header=0, target_category=0.9,
+    #                                    n_iteration=100, stop_criterion=0.96, seed=123)
 
-    optimizer = NNOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
-                            optimizee_fitness_weights=(1.0,),
-                            parameters=parameters)
+    # optimizer = NNOptimizer(traj, optimizee_create_individual=optimizee.create_individual,
+    #                         optimizee_fitness_weights=(1.0,),
+    #                         parameters=parameters)
 
     # ------------------------------------- Evol
     # tion ------------------------------------#
@@ -120,10 +120,12 @@ def main(s1,s2):
 
 
 if __name__ == '__main__':
-    random = np.random.RandomState(5231)
+    random = np.random.RandomState(66)
     for i in range(1):
         shutil.rmtree('../results')
-        seed1 = random.randint(1, 1000)
-        seed2 = random.randint(1, 1000)
+        seed1 = random.randint(1, 10000)
+        seed2 = random.randint(1000, 5000)
+        print(f"seed 1 {seed1}")
+        print(f"seed 2 {seed2}")
         main(seed1, seed2)
     # main()

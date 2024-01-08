@@ -25,13 +25,18 @@ class SignalGeneratorOptimizee(Optimizee):
         self.range = parameters.range
         self.am = [self.random.uniform(parameters.amplitude[0], parameters.amplitude[1]) for i in range(self.range)]
         self.ph = [self.random.uniform(parameters.phase[0], parameters.phase[1]) for i in range(self.range)]
+
+        y_real = [self.generate_signal(self.am[i], self.ph[i], self.fr) for i in range(self.range)]
+        # y_real = [self.generate_signal(3, -0.5, self.fr)]
+        self.y_mean = np.mean(y_real, axis=0)
+
         print(np.mean(self.am))
         print(np.mean(self.ph))
 
     def create_individual(self):
         amp = self.random.normal(1, 0.5)
         phase = self.random.normal(1, 0.5)
-        # amp = 4
+        # amp = 1
         # phase = -0.9
         return dict(amp=amp, phase=phase)
 
@@ -44,11 +49,8 @@ class SignalGeneratorOptimizee(Optimizee):
         amp = traj.individual.amp
         phase = traj.individual.phase
         y_pred = [self.generate_signal(amp, phase, self.fr)]
-        y_real = [self.generate_signal(self.am[i], self.ph[i], self.fr) for i in range(self.range)]
-        y_mean = np.mean(y_real, axis=0)
 
-        # return self.mean_square_erorr_list(y_pred, y_real)
-        return self.mean_square_erorr(y_pred=y_pred, y_true=y_mean)
+        return self.mean_square_erorr(y_pred=y_pred, y_true=self.y_mean)
 
     def generate_signal(self, amplitude, phase, freq, time=np.arange(0, 1, 0.01)):
         return amplitude * np.sin(2 * np.pi * freq * time + phase)

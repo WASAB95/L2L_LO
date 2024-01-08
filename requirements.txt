@@ -1,12 +1,17 @@
-numpy
+numpy~=1.25.1
 scipy
-pyyaml
+pyyaml~=6.0.1
 sphinx
 sphinxjp.themes.basicstrap
-sklearn
+sklearn~=0.0.post7
 jinja2
 gitpython
-scikit-learn
+scikit-learn~=1.3.0
 flake8
-deap
+deap~=1.4.1
 JUBE @ git+https://github.com/Meta-optimization/JUBE-L2L@master
+
+matplotlib~=3.7.2
+Pygments~=2.15.1
+setuptools~=68.0.0
+torch~=2.0.1
